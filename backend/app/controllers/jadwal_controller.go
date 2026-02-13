@@ -33,9 +33,9 @@ type UpdateJadwalRequest struct {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-func preloadJadwal(query interface{ Preload(string, ...interface{}) interface{ Find(interface{}, ...interface{}) interface{ Error error } } }) {
-	// helper placeholder — preload dilakukan inline
-}
+// func preloadJadwal(query interface{ Preload(string, ...interface{}) interface{ Find(interface{}, ...interface{}) interface{ Error error } } }) {
+// 	// helper placeholder — preload dilakukan inline
+// }
 
 // ── Handlers ──────────────────────────────────────────────────
 

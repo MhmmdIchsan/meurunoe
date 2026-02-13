@@ -255,7 +255,7 @@ func GetNilaiSaya(c *gin.Context) {
 	}
 
 	if claims.Role != models.RoleSiswa {
-		utils.ResponseForbidden(c, "Endpoint ini hanya untuk siswa", nil)
+		utils.ResponseForbidden(c, "Endpoint ini hanya untuk siswa")
 		return
 	}
 

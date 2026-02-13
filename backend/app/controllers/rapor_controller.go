@@ -100,12 +100,12 @@ func GenerateRapor(c *gin.Context) {
 	}
 
 	// Ambil data absensi (ringkasan)
-	type AbsensiRekap struct {
-		Hadir int64
-		Izin  int64
-		Sakit int64
-		Alfa  int64
-	}
+	// type AbsensiRekap struct {
+	// 	Hadir int64
+	// 	Izin  int64
+	// 	Sakit int64
+	// 	Alfa  int64
+	// }
 	var absensiRekap AbsensiRekap
 	config.DB.Model(&models.Absensi{}).
 		Select("SUM(CASE WHEN status='hadir' THEN 1 ELSE 0 END) as hadir, "+
@@ -361,15 +361,15 @@ func buatPDFRapor(
 }
 
 // Helper untuk predikat (sama seperti di nilai_controller)
-func tentukanPredikat(nilaiAkhir float64) string {
-	if nilaiAkhir >= 90 {
-		return "A"
-	} else if nilaiAkhir >= 80 {
-		return "B"
-	} else if nilaiAkhir >= 70 {
-		return "C"
-	} else if nilaiAkhir >= 60 {
-		return "D"
-	}
-	return "E"
-}
+// func tentukanPredikat(nilaiAkhir float64) string {
+// 	if nilaiAkhir >= 90 {
+// 		return "A"
+// 	} else if nilaiAkhir >= 80 {
+// 		return "B"
+// 	} else if nilaiAkhir >= 70 {
+// 		return "C"
+// 	} else if nilaiAkhir >= 60 {
+// 		return "D"
+// 	}
+// 	return "E"
+// }
