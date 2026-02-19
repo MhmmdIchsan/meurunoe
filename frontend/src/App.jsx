@@ -12,6 +12,9 @@ import KelasList    from './pages/Kelas/KelasList';
 import JadwalList   from './pages/Jadwal/JadwalList';
 import AbsensiInput from './pages/Absensi/AbsensiInput';
 import RaporList    from './pages/Rapor/RaporList';
+import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
+import JurusanList from './pages/Jurusan/JurusanList';
+import MataPelajaranList from './pages/MataPelajaran/MataPelajaranList';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -42,13 +45,14 @@ function App() {
             <Route path="siswa"        element={<SiswaList />} />
             <Route path="guru"         element={<GuruList />} />
             <Route path="kelas"        element={<KelasList />} />
-            <Route path="mapel"        element={<ComingSoon title="Mata Pelajaran" />} />
-            <Route path="tahun-ajaran" element={<ComingSoon title="Tahun Ajaran" />} />
+            <Route path="mapel"        element={<MataPelajaranList />} />
+            <Route path="tahun-ajaran" element={<TahunAjaranList />} />
             <Route path="jadwal"       element={<JadwalList />} />
             <Route path="absensi"      element={<AbsensiInput />} />
             <Route path="nilai"        element={<ComingSoon title="Penilaian" />} />
             <Route path="rapor"        element={<RaporList />} />
-            <Route path="laporan"      element={<ComingSoon title="Laporan" />} />
+            <Route path="laporan" element={<ComingSoon title="Laporan" />} />
+            <Route path="jurusan" element={<JurusanList />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
