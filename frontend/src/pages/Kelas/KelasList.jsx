@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { kelasService } from '../../services/kelasService';
 import { guruService } from '../../services/guruService';
+import { jurusanService } from "../../services/jurusanService";
+import { tahunAjaranService } from "../../services/tahunajaranService";
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
 import Alert from '../../components/Common/Alert';
@@ -8,37 +10,48 @@ import Alert from '../../components/Common/Alert';
 const KelasList = () => {
   const [kelas, setKelas] = useState([]);
   const [guru, setGuru] = useState([]);
+  const [jurusanList, setJurusanList] = useState([]);
+  const [taList, setTaList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [alert, setAlert] = useState({ show: false, type: '', message: '' });
   const [formData, setFormData] = useState({
-    nama_kelas: '',
-    tingkat: '',
-    jurusan: '',
-    tahun_ajaran: '',
-    wali_kelas_id: ''
+    nama: "",
+    tingkat: "",
+    jurusan_id: "",
+    tahun_ajaran_id: "",
+    wali_kelas_id: null
   });
+
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      const [kelasRes, guruRes] = await Promise.all([
-        kelasService.getAll(),
-        guruService.getAll()
-      ]);
-      setKelas(kelasRes.data.data || []);
-      setGuru(guruRes.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data');
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchData = async () => {
+  try {
+    const [kelasRes, guruRes, jurusanRes, taRes] = await Promise.all([
+      kelasService.getAll(),
+      guruService.getAll({ page: 1, limit: 1000 }),
+      jurusanService.getAll(),
+      tahunAjaranService.getAll(),
+    ]);
+
+    setKelas(kelasRes.data || []);
+    setGuru(guruRes.data || []);
+    setJurusanList(jurusanRes.data || []);
+    setTaList(taRes.data || []);
+
+  } catch (error) {
+    console.log(error); // 🔥 WAJIB buat debug
+    showAlert('error', 'Gagal memuat data');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const showAlert = (type, message) => {
     setAlert({ show: true, type, message });
@@ -48,10 +61,10 @@ const KelasList = () => {
   const handleAdd = () => {
     setEditMode(false);
     setFormData({
-      nama_kelas: '',
+      nama: '',
       tingkat: '',
-      jurusan: '',
-      tahun_ajaran: '2024/2025',
+      jurusan_id: '',
+      tahun_ajaran_id: '',
       wali_kelas_id: ''
     });
     setShowModal(true);
@@ -61,11 +74,11 @@ const KelasList = () => {
     setEditMode(true);
     setSelectedKelas(item);
     setFormData({
-      nama_kelas: item.nama_kelas,
+      nama: item.nama,
       tingkat: item.tingkat,
-      jurusan: item.jurusan || '',
-      tahun_ajaran: item.tahun_ajaran,
-      wali_kelas_id: item.wali_kelas_id || ''
+      jurusan_id: item.jurusan_id,
+      tahun_ajaran_id: item.tahun_ajaran_id,
+      wali_kelas_id: item.wali_kelas_id || null
     });
     setShowModal(true);
   };
@@ -101,11 +114,19 @@ const KelasList = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+
+    setFormData(prev => ({
+      ...prev,
+      [name]:
+        name === "jurusan_id" ||
+        name === "tahun_ajaran_id" ||
+        name === "wali_kelas_id"
+          ? (value === "" ? null : Number(value))
+          : value
+    }));
   };
+
 
   if (loading) {
     return (
@@ -143,12 +164,12 @@ const KelasList = () => {
                   🏫
                 </div>
                 <span className="badge badge-info">
-                  {item.tahun_ajaran}
+                  {item.tahun_ajaran?.nama}
                 </span>
               </div>
 
               <h3 className="text-xl font-bold text-text mb-2">
-                {item.nama_kelas}
+                {item.nama}
               </h3>
               
               <div className="space-y-2 mb-4">
@@ -156,12 +177,14 @@ const KelasList = () => {
                   <span className="text-text-light w-24">Tingkat:</span>
                   <span className="font-medium text-text">{item.tingkat}</span>
                 </div>
-                {item.jurusan && (
-                  <div className="flex items-center text-sm">
-                    <span className="text-text-light w-24">Jurusan:</span>
-                    <span className="font-medium text-text">{item.jurusan}</span>
-                  </div>
-                )}
+                  {item.jurusan && (
+                    <div className="flex items-center text-sm">
+                      <span className="text-text-light w-24">Jurusan:</span>
+                      <span className="font-medium text-text">
+                        {item.jurusan?.nama}
+                      </span>
+                    </div>
+                  )}
                 <div className="flex items-center text-sm">
                   <span className="text-text-light w-24">Wali Kelas:</span>
                   <span className="font-medium text-text">
@@ -200,11 +223,11 @@ const KelasList = () => {
             <label className="block text-sm font-medium text-text mb-2">Nama Kelas *</label>
             <input
               type="text"
-              name="nama_kelas"
-              value={formData.nama_kelas}
+              name="nama"
+              value={formData.nama}
               onChange={handleChange}
               className="input-field"
-              placeholder="Contoh: XII IPA 1"
+              placeholder="Contoh: X IPA 1"
               required
             />
           </div>
@@ -227,28 +250,39 @@ const KelasList = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-text mb-2">Jurusan</label>
-              <input
-                type="text"
-                name="jurusan"
-                value={formData.jurusan}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="IPA, IPS, dsb"
-              />
+                <select
+                  name="jurusan_id"
+                  value={formData.jurusan_id}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                >
+                  <option value="">Pilih Jurusan</option>
+                  {jurusanList.map(j => (
+                    <option key={j.id} value={j.id}>
+                      {j.nama}
+                    </option>
+                  ))}
+                </select>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-text mb-2">Tahun Ajaran *</label>
-            <input
-              type="text"
-              name="tahun_ajaran"
-              value={formData.tahun_ajaran}
+            <select
+              name="tahun_ajaran_id"
+              value={formData.tahun_ajaran_id}
               onChange={handleChange}
               className="input-field"
-              placeholder="2024/2025"
               required
-            />
+            >
+              <option value="">Pilih Tahun Ajaran</option>
+              {taList.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.nama}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

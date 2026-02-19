@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { jadwalService } from '../../services/jadwalService';
 import { kelasService } from '../../services/kelasService';
+import { semesterService } from '../../services/semesterService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Alert from '../../components/Common/Alert';
 
@@ -36,7 +37,7 @@ const JadwalList = () => {
   const fetchKelas = async () => {
     try {
       const response = await kelasService.getAll();
-      const kelasData = response.data.data || [];
+      const kelasData = response.data || [];
       setKelas(kelasData);
       if (kelasData.length > 0) {
         setSelectedKelas(kelasData[0].id);
@@ -51,14 +52,24 @@ const JadwalList = () => {
   const fetchJadwal = async () => {
     try {
       setLoading(true);
-      const response = await jadwalService.getByKelas(selectedKelas);
-      setJadwal(response.data.data || []);
+
+      const sem = await semesterService.getAktif();
+      const semesterId = sem.data.data.id; // ✅ BENAR
+
+      const response = await jadwalService.getByKelas(
+        selectedKelas,
+        semesterId
+      );
+
+      setJadwal(response.data || []);
     } catch (error) {
+      console.log("ERROR FETCH JADWAL:", error.response);
       showAlert('error', 'Gagal memuat data jadwal');
     } finally {
       setLoading(false);
     }
   };
+
 
   const showAlert = (type, message) => {
     setAlert({ show: true, type, message });
@@ -111,7 +122,7 @@ const JadwalList = () => {
             className="input-field max-w-xs"
           >
             {kelas.map((k) => (
-              <option key={k.id} value={k.id}>{k.nama_kelas}</option>
+              <option key={k.id} value={k.id}>{k.nama}</option>
             ))}
           </select>
         </div>

@@ -23,30 +23,16 @@ export default function UserList() {
   async function fetchAll() {
     setLoading(true);
     try {
-      // Fetch roles dari backend
-      try {
-        const rolesRes = await api.get('/roles');
-        const raw = rolesRes.data?.data || rolesRes.data;
-        console.log('[Users] roles response:', rolesRes.data);
-        setRoles(Array.isArray(raw) ? raw : []);
-      } catch {
-        // Fallback statis jika /roles gagal
-        setRoles([
-          { id: 1, nama_role: 'Admin' },
-          { id: 2, nama_role: 'Kepala Sekolah' },
-          { id: 3, nama_role: 'Guru' },
-          { id: 4, nama_role: 'Wali Kelas' },
-          { id: 5, nama_role: 'Siswa' },
-          { id: 6, nama_role: 'Orang Tua' },
-        ]);
-      }
-
-      const res = await userService.getAll();
-      const raw = res.data;
-      console.log('[Users] getAll response:', res);
-      setUsers(Array.isArray(raw) ? raw : (raw?.data || []));
-    } catch {
-      setErrMsg('Gagal memuat data user');
+      const [rolesRes, usersRes] = await Promise.all([
+        api.get('/roles'),
+        userService.getAll(),
+      ]);
+      const rawRoles = rolesRes.data?.data || [];
+      const rawUsers = usersRes.data;
+      setRoles(Array.isArray(rawRoles) ? rawRoles : []);
+      setUsers(Array.isArray(rawUsers) ? rawUsers : (rawUsers?.data || []));
+    } catch (e) {
+      setErrMsg('Gagal memuat data: ' + (e.response?.data?.message || e.message));
     } finally {
       setLoading(false);
     }
@@ -86,21 +72,24 @@ export default function UserList() {
     e.preventDefault();
     setErrMsg(''); setSaving(true);
 
-    const payload = {
-      nama:      form.nama,
-      email:     form.email,
-      role_id:   Number(form.role_id),
-      is_active: form.is_active,
-    };
-    if (form.password) payload.password = form.password;
-
-    console.log('[Users] payload:', payload);
-
     try {
       if (editMode) {
+        const payload = {
+          nama:      form.nama,
+          email:     form.email,
+          role_id:   Number(form.role_id),
+          is_active: form.is_active,
+        };
         await userService.update(selected.id, payload);
         setSuccess('User berhasil diperbarui');
       } else {
+        const payload = {
+          nama:      form.nama,
+          email:     form.email,
+          password:  form.password,
+          role_id:   Number(form.role_id),
+          is_active: form.is_active,
+        };
         await userService.create(payload);
         setSuccess('User berhasil ditambahkan');
       }
@@ -109,7 +98,6 @@ export default function UserList() {
     } catch (e) {
       const data = e.response?.data;
       const msg  = data?.errors || data?.message || e.message || 'Gagal menyimpan';
-      console.error('[Users] error:', data);
       setErrMsg(typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
     } finally {
       setSaving(false);
@@ -121,11 +109,10 @@ export default function UserList() {
     setForm(p => ({ ...p, [e.target.name]: v }));
   };
 
-  // Helper tampilkan nama role dari object user
   const getRoleName = (u) => {
     const r = u.role;
     if (!r) return '-';
-    return (typeof r === 'string') ? r : (r.nama_role || r.name || String(r.id) || '-');
+    return (typeof r === 'string') ? r : (r.nama_role || r.nama || r.name || '-');
   };
 
   if (loading) return (
@@ -142,13 +129,28 @@ export default function UserList() {
         <button onClick={openAdd} className="btn-primary">➕ Tambah User</button>
       </div>
 
-      <div className="p-4 mb-5 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
-        <strong>ℹ️ Catatan penting:</strong>
-        <ul className="mt-1 ml-4 list-disc space-y-0.5">
-          <li>User dengan role <strong>Guru</strong> → lengkapi profil di menu <strong>Data Guru</strong></li>
-          <li>User dengan role <strong>Siswa</strong> → lengkapi profil di menu <strong>Data Siswa</strong></li>
-          <li>Atau tambah langsung dari Data Guru / Data Siswa (otomatis buat akun)</li>
-        </ul>
+      {/* WARNING PENTING */}
+      <div className="p-4 mb-5 rounded-lg bg-amber-50 border-l-4 border-amber-500 text-sm">
+        <div className="flex gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <p className="font-semibold text-amber-900 mb-2">Perhatian: Relasi User → Guru/Siswa</p>
+            <ul className="space-y-1 text-amber-800">
+              <li className="flex gap-2">
+                <span>❌</span>
+                <span><strong>Jika tambah user dengan role Guru di sini</strong> → user dibuat tapi <strong>TIDAK muncul di Data Guru</strong> (tidak ada relasi)</span>
+              </li>
+              <li className="flex gap-2">
+                <span>✅</span>
+                <span><strong>Solusi:</strong> Tambah guru langsung dari menu <strong>Data Guru</strong> — otomatis buat user + relasi</span>
+              </li>
+              <li className="flex gap-2 mt-2">
+                <span>📝</span>
+                <span>Menu ini hanya untuk user admin, kepala sekolah, atau role lain yang tidak perlu relasi ke tabel guru/siswa.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {success && (
@@ -162,9 +164,7 @@ export default function UserList() {
         <div className="overflow-x-auto">
           <table className="table-auto">
             <thead>
-              <tr>
-                <th>Nama</th><th>Email</th><th>Role</th><th>Status</th><th>Aksi</th>
-              </tr>
+              <tr><th>Nama</th><th>Email</th><th>Role</th><th>Status</th><th>Aksi</th></tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
@@ -174,11 +174,7 @@ export default function UserList() {
                   <td className="font-medium">{u.nama || '-'}</td>
                   <td>{u.email || '-'}</td>
                   <td><span className="badge badge-info">{getRoleName(u)}</span></td>
-                  <td>
-                    {u.is_active
-                      ? <span className="badge badge-success">Aktif</span>
-                      : <span className="badge badge-error">Nonaktif</span>}
-                  </td>
+                  <td>{u.is_active ? <span className="badge badge-success">Aktif</span> : <span className="badge badge-error">Nonaktif</span>}</td>
                   <td>
                     <div className="flex gap-3">
                       <button onClick={() => openEdit(u)} className="text-primary text-sm hover:underline">✏️ Edit</button>
@@ -195,7 +191,6 @@ export default function UserList() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)}
         title={editMode ? 'Edit User' : 'Tambah User Baru'}>
         <form onSubmit={handleSubmit} className="space-y-4">
-
           {errMsg && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
               <strong>Error:</strong> {errMsg}
@@ -205,12 +200,12 @@ export default function UserList() {
           <div>
             <label className="block text-sm font-medium text-text mb-1">Nama Lengkap *</label>
             <input name="nama" value={form.nama} onChange={ch}
-              className="input-field" required placeholder="Nama lengkap" />
+              className="input-field" required minLength={3} placeholder="Min. 3 karakter" />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-text mb-1">
-              Email * <span className="font-normal text-text-light">(untuk login)</span>
+              Email * <span className="font-normal text-text-light">(untuk login, harus unik)</span>
             </label>
             <input type="email" name="email" value={form.email} onChange={ch}
               className="input-field" required placeholder="email@sekolah.sch.id" />
@@ -218,12 +213,10 @@ export default function UserList() {
 
           <div>
             <label className="block text-sm font-medium text-text mb-1">
-              Password {editMode
-                ? <span className="font-normal text-text-light">(kosongkan jika tidak diubah)</span>
-                : '*'}
+              Password {editMode ? <span className="font-normal text-text-light">(kosongkan jika tidak diubah)</span> : '* (min. 8 karakter)'}
             </label>
             <input type="password" name="password" value={form.password} onChange={ch}
-              className="input-field" required={!editMode}
+              className="input-field" required={!editMode} minLength={editMode ? 0 : 8}
               placeholder={editMode ? 'Kosongkan jika tidak diubah' : 'Min. 8 karakter'} />
           </div>
 
@@ -236,12 +229,15 @@ export default function UserList() {
                 <option key={r.id} value={r.id}>{r.nama_role || r.nama || r.name}</option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-amber-600">
+              ⚠️ Untuk role <strong>Guru</strong> atau <strong>Siswa</strong>, sebaiknya tambah dari menu <strong>Data Guru</strong> / <strong>Data Siswa</strong>
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="chk" name="is_active"
+            <input type="checkbox" id="chk_active" name="is_active"
               checked={form.is_active} onChange={ch} className="w-4 h-4" />
-            <label htmlFor="chk" className="text-sm font-medium text-text">User Aktif</label>
+            <label htmlFor="chk_active" className="text-sm font-medium text-text">User Aktif</label>
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-border">

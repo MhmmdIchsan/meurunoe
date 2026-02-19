@@ -38,7 +38,7 @@ const AbsensiInput = () => {
   const fetchKelas = async () => {
     try {
       const response = await kelasService.getAll();
-      setKelas(response.data.data || []);
+      setKelas(response.data || []);
     } catch (error) {
       showAlert('error', 'Gagal memuat data kelas');
     }
@@ -160,7 +160,7 @@ const AbsensiInput = () => {
               >
                 <option value="">Pilih Kelas</option>
                 {kelas.map((k) => (
-                  <option key={k.id} value={k.id}>{k.nama_kelas}</option>
+                  <option key={k.id} value={k.id}>{k.nama}</option>
                 ))}
               </select>
             </div>

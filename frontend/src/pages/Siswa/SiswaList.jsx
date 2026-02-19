@@ -204,9 +204,9 @@ const SiswaList = () => {
                   <td className="font-mono text-sm">{item.nisn}</td>
                   <td className="font-medium">{item.nama}</td>
                   <td>{item.jenis_kelamin === 'L' ? 'L' : 'P'}</td>
-                  <td>{item.kelas?.nama_kelas || '-'}</td>
+                  <td>{item.kelas?.nama || '-'}</td>
                   <td>{item.user?.email || item.email || '-'}</td>
-                  <td>{item.no_hp || '-'}</td>
+                  <td>{item.alamat || '-'}</td>
                   <td>
                     <div className="flex gap-3">
                       <button onClick={() => handleEdit(item)} className="text-primary text-sm hover:underline">✏️ Edit</button>
@@ -268,7 +268,7 @@ const SiswaList = () => {
               className="input-field">
               <option value="">-- Pilih Kelas --</option>
               {kelas.map(k => (
-                <option key={k.id} value={k.id}>{k.nama_kelas}</option>
+                <option key={k.id} value={k.id}>{k.nama}</option>
               ))}
             </select>
           </div>
@@ -281,11 +281,6 @@ const SiswaList = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text mb-1">No. HP</label>
-              <input name="no_hp" value={form.no_hp} onChange={handleChange}
-                className="input-field" placeholder="08xx-xxxx-xxxx" />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-text mb-1">
                 Email Login {!editMode && '*'}
               </label>
@@ -293,9 +288,8 @@ const SiswaList = () => {
                 className="input-field" required={!editMode}
                 placeholder="siswa@sekolah.sch.id" />
             </div>
-          </div>
 
-          <div>
+                      <div>
             <label className="block text-sm font-medium text-text mb-1">
               Password {editMode
                 ? <span className="text-text-light font-normal">(kosongkan jika tidak diubah)</span>
@@ -305,6 +299,7 @@ const SiswaList = () => {
               onChange={handleChange} className="input-field"
               required={!editMode}
               placeholder={editMode ? 'Biarkan kosong jika tidak diubah' : 'Minimal 8 karakter'} />
+          </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
