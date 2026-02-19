@@ -22,7 +22,12 @@ const ALL_MENU = [
   { title: 'Rapor',          path: '/rapor',         icon: '📄',
     roles: ['admin','kepala sekolah','guru','wali kelas','siswa','orang tua'] },
   { title: 'Laporan',        path: '/laporan',       icon: '📈',
-    roles: ['admin','kepala sekolah'] },
+    roles: ['admin', 'kepala sekolah']
+  },
+  {
+    title: 'Jurusan', path: '/jurusan', icon: '🎯',
+    roles: ['admin','kepala sekolah']
+  }
 ];
 
 export default function Sidebar() {
