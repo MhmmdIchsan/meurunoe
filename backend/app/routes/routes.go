@@ -81,6 +81,7 @@ func RegisterRoutes(r *gin.Engine) {
 		sem.Use(middlewares.RoleMiddleware(models.RoleAdmin))
 		{
 			sem.GET("", controllers.GetSemester)
+			sem.GET("/aktif", controllers.GetSemesterAktif)
 			sem.POST("", controllers.CreateSemester)
 			sem.PUT("/:id", controllers.UpdateSemester)
 			sem.DELETE("/:id", controllers.DeleteSemester)
@@ -110,7 +111,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Guru (admin) ──────────────────────────────────────────
 		guru := protected.Group("/guru")
-		guru.Use(middlewares.RoleMiddleware(models.RoleAdmin))
+		guru.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru))
 		{
 			guru.GET("", controllers.GetGuru)
 			guru.GET("/:id", controllers.GetGuruByID)
