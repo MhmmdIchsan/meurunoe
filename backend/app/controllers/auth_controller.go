@@ -3,11 +3,12 @@ package controllers
 import (
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"sim-sekolah/app/middlewares"
 	"sim-sekolah/app/models"
 	"sim-sekolah/config"
 	"sim-sekolah/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 // ── Request / Response DTOs ────────────────────────────────────
@@ -63,6 +64,12 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Verifikasi status aktif
+	if !user.IsActive {
+        utils.ResponseUnauthorized(c, "Akun tidak aktif")
+        return
+    }
+
 	// Generate token
 	token, err := utils.GenerateToken(user.ID, user.RoleID, user.Nama, user.Email, user.Role.Nama)
 	if err != nil {
@@ -74,17 +81,23 @@ func Login(c *gin.Context) {
 	now := time.Now()
 	config.DB.Model(&user).Update("last_login", now)
 
-	utils.ResponseOK(c, "Login berhasil", LoginResponse{
-		AccessToken: token,
-		TokenType:   "Bearer",
-		ExpiresAt:   now.Add(24 * time.Hour),
-		User: UserInfo{
-			ID:    user.ID,
-			Nama:  user.Nama,
-			Email: user.Email,
-			Role:  user.Role.Nama,
-		},
-	})
+    c.JSON(200, gin.H{
+        "success": true,
+        "message": "Login berhasil",
+        "data": gin.H{
+            "token": token,
+            "user": gin.H{
+                "id":        user.ID,
+                "nama":      user.Nama,
+                "email":     user.Email,
+                "is_active": user.IsActive,
+                "role": gin.H{
+                    "id":        user.Role.ID,
+                    "nama_role": user.Role.Nama,  // ← sekarang object, bukan string
+                },
+            },
+        },
+    })
 }
 
 // Me godoc
@@ -111,7 +124,10 @@ func Me(c *gin.Context) {
 		"id":         user.ID,
 		"nama":       user.Nama,
 		"email":      user.Email,
-		"role":       user.Role.Nama,
+		"role": gin.H{
+			"id":        user.Role.ID,
+			"nama_role": user.Role.Nama,
+		},
 		"is_active":  user.IsActive,
 		"last_login": user.LastLogin,
 	})
