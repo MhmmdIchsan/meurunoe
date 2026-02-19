@@ -1,84 +1,74 @@
 import { useState, useEffect } from 'react';
-import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalSiswa: 0,
-    totalGuru: 0,
-    totalKelas: 0,
-    totalMapel: 0
-  });
-  const [absensiStats, setAbsensiStats] = useState({
-    hadir: 0,
-    izin: 0,
-    sakit: 0,
-    alpha: 0
-  });
+  const role = user?.role?.nama_role?.toLowerCase() || '';
+
+  const [stats, setStats] = useState({ totalSiswa: 0, totalGuru: 0, totalKelas: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [role]);
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch statistics based on role
-      const [siswaRes, guruRes, kelasRes] = await Promise.all([
-        api.get('/siswa?limit=1'),
-        api.get('/guru?limit=1'),
-        api.get('/kelas?limit=1')
-      ]);
+      const isAdmin   = ['admin', 'kepala_sekolah'].includes(role);
+      const isGuru    = ['guru', 'wali_kelas'].includes(role);
 
-      setStats({
-        totalSiswa: siswaRes.data.data?.total || 0,
-        totalGuru: guruRes.data.data?.total || 0,
-        totalKelas: kelasRes.data.data?.total || 0,
-        totalMapel: 12 // Static for now
-      });
+      if (isAdmin || isGuru) {
+        const results = await Promise.allSettled([
+          api.get('/siswa'),
+          api.get('/guru'),
+          api.get('/kelas'),
+        ]);
 
-      // Fetch absensi stats
-      const today = new Date().toISOString().split('T')[0];
-      const absensiRes = await api.get(`/absensi/rekap?tanggal=${today}`);
-      if (absensiRes.data.data) {
-        const rekap = absensiRes.data.data;
-        setAbsensiStats({
-          hadir: rekap.total_hadir || 0,
-          izin: rekap.total_izin || 0,
-          sakit: rekap.total_sakit || 0,
-          alpha: rekap.total_alpha || 0
+        const getLen = (res) => {
+          if (res.status !== 'fulfilled') return 0;
+          const d = res.value?.data?.data;
+          return Array.isArray(d) ? d.length : 0;
+        };
+
+        setStats({
+          totalSiswa: getLen(results[0]),
+          totalGuru:  getLen(results[1]),
+          totalKelas: getLen(results[2]),
         });
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const absensiChartData = {
-    labels: ['Hadir', 'Izin', 'Sakit', 'Alpha'],
-    datasets: [
-      {
-        data: [absensiStats.hadir, absensiStats.izin, absensiStats.sakit, absensiStats.alpha],
-        backgroundColor: ['#22C55E', '#3B82F6', '#FACC15', '#EF4444'],
-        borderWidth: 0
-      }
-    ]
-  };
+  const isAdmin  = ['admin', 'kepala_sekolah'].includes(role);
+  const isStaff  = ['guru', 'wali_kelas'].includes(role);
+  const isSiswa  = role === 'siswa';
+  const isOrtu   = role === 'orang_tua';
 
   const statsCards = [
-    { title: 'Total Siswa', value: stats.totalSiswa, icon: '🎓', color: 'bg-blue-500' },
-    { title: 'Total Guru', value: stats.totalGuru, icon: '👨‍🏫', color: 'bg-green-500' },
-    { title: 'Total Kelas', value: stats.totalKelas, icon: '🏫', color: 'bg-purple-500' },
-    { title: 'Mata Pelajaran', value: stats.totalMapel, icon: '📚', color: 'bg-orange-500' }
-  ];
+    { title: 'Total Siswa', value: stats.totalSiswa, icon: '🎓', color: 'bg-blue-500',   show: isAdmin || isStaff },
+    { title: 'Total Guru',  value: stats.totalGuru,  icon: '👨‍🏫', color: 'bg-green-500',  show: isAdmin },
+    { title: 'Total Kelas', value: stats.totalKelas, icon: '🏫', color: 'bg-purple-500', show: isAdmin || isStaff },
+  ].filter(s => s.show);
+
+  const quickActions = [
+    { label: 'Input Absensi',  icon: '✅', to: '/absensi', show: isAdmin || isStaff },
+    { label: 'Input Nilai',    icon: '📝', to: '/nilai',   show: isAdmin || isStaff },
+    { label: 'Lihat Jadwal',   icon: '📅', to: '/jadwal',  show: true },
+    { label: 'Rapor Saya',     icon: '📄', to: '/rapor',   show: isSiswa || isOrtu },
+    { label: 'Generate Rapor', icon: '📋', to: '/rapor',   show: isAdmin || role === 'wali_kelas' },
+    { label: 'Data Siswa',     icon: '🎓', to: '/siswa',   show: isAdmin || isStaff },
+  ].filter(a => a.show);
 
   if (loading) {
     return (
@@ -92,44 +82,46 @@ const Dashboard = () => {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-text">Dashboard</h1>
-        <p className="text-text-light mt-1">Ringkasan Data Akademik</p>
+        <p className="text-text-light mt-1">
+          Selamat datang, <strong>{user?.nama || user?.email}</strong>
+        </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        {statsCards.map((stat, index) => (
-          <div key={index} className="card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-light text-sm mb-1">{stat.title}</p>
-                <p className="text-3xl font-bold text-text">{stat.value}</p>
-              </div>
-              <div className={`w-14 h-14 ${stat.color} rounded-lg flex items-center justify-center text-3xl`}>
-                {stat.icon}
+      {statsCards.length > 0 && (
+        <div className={`grid grid-cols-1 gap-6 mb-6 ${
+          statsCards.length === 3 ? 'md:grid-cols-3' :
+          statsCards.length === 2 ? 'md:grid-cols-2' : ''
+        }`}>
+          {statsCards.map((stat, i) => (
+            <div key={i} className="card p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-text-light text-sm mb-1">{stat.title}</p>
+                  <p className="text-3xl font-bold text-text">{stat.value}</p>
+                </div>
+                <div className={`w-14 h-14 ${stat.color} rounded-lg flex items-center justify-center text-3xl`}>
+                  {stat.icon}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Absensi Chart */}
+        {/* Info Absensi — tanpa API call */}
         <div className="card p-6">
-          <h3 className="text-lg font-semibold text-text mb-4">Statistik Absensi Hari Ini</h3>
-          <div className="h-64 flex items-center justify-center">
-            <Doughnut 
-              data={absensiChartData} 
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'bottom'
-                  }
-                }
-              }}
-            />
+          <h3 className="text-lg font-semibold text-text mb-1">Statistik Absensi</h3>
+          <p className="text-xs text-text-light mb-4">
+            Lihat rekap absensi detail per kelas atau per siswa di menu Absensi
+          </p>
+          <div className="h-48 flex flex-col items-center justify-center text-text-light gap-3">
+            <span className="text-5xl">📊</span>
+            <p className="text-sm text-center">Pilih kelas di menu <strong>Absensi</strong><br/>untuk melihat rekap kehadiran</p>
+            <Link to="/absensi" className="btn-primary text-sm">
+              Buka Absensi
+            </Link>
           </div>
         </div>
 
@@ -137,48 +129,31 @@ const Dashboard = () => {
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-text mb-4">Aksi Cepat</h3>
           <div className="space-y-3">
-            <button className="w-full btn-primary justify-start">
-              <span className="mr-2">➕</span>
-              Input Absensi
-            </button>
-            <button className="w-full btn-primary justify-start">
-              <span className="mr-2">📝</span>
-              Input Nilai
-            </button>
-            <button className="w-full btn-primary justify-start">
-              <span className="mr-2">📅</span>
-              Lihat Jadwal
-            </button>
-            <button className="w-full btn-primary justify-start">
-              <span className="mr-2">📄</span>
-              Generate Rapor
-            </button>
+            {quickActions.map((action, i) => (
+              <Link
+                key={i}
+                to={action.to}
+                className="flex items-center gap-3 w-full btn-primary"
+              >
+                <span>{action.icon}</span>
+                {action.label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="card p-6 mt-6">
-        <h3 className="text-lg font-semibold text-text mb-4">Aktivitas Terbaru</h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white">
-              📝
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-text">Input nilai Matematika kelas XII IPA 1</p>
-              <p className="text-xs text-text-light">2 jam yang lalu</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-            <div className="w-10 h-10 bg-success rounded-full flex items-center justify-center text-white">
-              ✅
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-text">Absensi kelas XI IPA 2 berhasil disimpan</p>
-              <p className="text-xs text-text-light">3 jam yang lalu</p>
-            </div>
-          </div>
+      {/* User Info Card */}
+      <div className="card p-5 mt-6 flex items-center gap-4 bg-blue-50 border-blue-200">
+        <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0">
+          {(user?.nama || user?.email || 'U').charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <p className="font-semibold text-text">{user?.nama || '-'}</p>
+          <p className="text-sm text-text-light">
+            Role: <span className="font-medium text-primary capitalize">{user?.role?.nama_role || '-'}</span>
+            {user?.email && <span className="ml-3">· {user.email}</span>}
+          </p>
         </div>
       </div>
     </div>
