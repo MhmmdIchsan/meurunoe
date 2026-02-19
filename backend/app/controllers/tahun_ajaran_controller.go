@@ -155,6 +155,22 @@ func GetSemester(c *gin.Context) {
 	utils.ResponseOK(c, "Daftar semester", list)
 }
 
+
+// GetSemesterAktif godoc
+// @Summary Semester aktif
+// @Tags Semester
+// @Security BearerAuth
+// @Router /semester/aktif [get]
+func GetSemesterAktif(c *gin.Context) {
+	var sem models.Semester
+
+	if err := config.DB.Where("is_aktif = ?", true).Preload("TahunAjaran").First(&sem).Error; err != nil {
+		utils.ResponseNotFound(c, "Semester aktif tidak ditemukan")
+		return
+	}
+	utils.ResponseOK(c, "Semester aktif", sem)
+}
+
 // CreateSemester godoc
 // @Summary Buat semester baru
 // @Tags Semester
