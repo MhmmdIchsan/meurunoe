@@ -142,20 +142,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* User Info Card */}
-      <div className="card p-5 mt-6 flex items-center gap-4 bg-blue-50 border-blue-200">
-        <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0">
-          {(user?.nama || user?.email || 'U').charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <p className="font-semibold text-text">{user?.nama || '-'}</p>
-          <p className="text-sm text-text-light">
-            Role: <span className="font-medium text-primary capitalize">{user?.role?.nama_role || '-'}</span>
-            {user?.email && <span className="ml-3">· {user.email}</span>}
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
