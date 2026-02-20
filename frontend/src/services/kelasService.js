@@ -6,8 +6,18 @@ export const kelasService = {
     return response.data;
   },
 
+  getSummary: async () => {
+    const response = await api.get('/kelas/summary');
+    return response.data;
+  },
+
   getById: async (id) => {
     const response = await api.get(`/kelas/${id}`);
+    return response.data;
+  },
+
+  getSiswaByKelas: async (kelasId) => {
+    const response = await api.get(`/kelas/${kelasId}/siswa`);
     return response.data;
   },
 
@@ -24,5 +34,5 @@ export const kelasService = {
   delete: async (id) => {
     const response = await api.delete(`/kelas/${id}`);
     return response.data;
-  }
+  },
 };
