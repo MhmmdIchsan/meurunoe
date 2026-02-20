@@ -67,7 +67,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Tahun Ajaran (admin) ─────────────────────────────────
 		ta := protected.Group("/tahun-ajaran")
-		ta.Use(middlewares.RoleMiddleware(models.RoleAdmin))
+		ta.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
 		{
 			ta.GET("", controllers.GetTahunAjaran)
 			ta.GET("/:id", controllers.GetTahunAjaranByID)
@@ -78,7 +78,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Semester (admin) ──────────────────────────────────────
 		sem := protected.Group("/semester")
-		sem.Use(middlewares.RoleMiddleware(models.RoleAdmin))
+		sem.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
 		{
 			sem.GET("", controllers.GetSemester)
 			sem.GET("/aktif", controllers.GetSemesterAktif)
@@ -89,7 +89,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Jurusan (admin) ───────────────────────────────────────
 		jur := protected.Group("/jurusan")
-		jur.Use(middlewares.RoleMiddleware(models.RoleAdmin))
+		jur.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
 		{
 			jur.GET("", controllers.GetJurusan)
 			jur.GET("/:id", controllers.GetJurusanByID)
@@ -100,7 +100,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Mata Pelajaran (admin) ────────────────────────────────
 		mp := protected.Group("/mata-pelajaran")
-		mp.Use(middlewares.RoleMiddleware(models.RoleAdmin))
+		mp.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
 		{
 			mp.GET("", controllers.GetMataPelajaran)
 			mp.GET("/:id", controllers.GetMataPelajaranByID)
@@ -111,7 +111,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Guru (admin) ──────────────────────────────────────────
 		guru := protected.Group("/guru")
-		guru.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru))
+		guru.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas, models.RoleKepalaSekolah))
 		{
 			guru.GET("", controllers.GetGuru)
 			guru.GET("/:id", controllers.GetGuruByID)
