@@ -15,6 +15,7 @@ import RaporList    from './pages/Rapor/RaporList';
 import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
 import JurusanList from './pages/Jurusan/JurusanList';
 import MataPelajaranList from './pages/MataPelajaran/MataPelajaranList';
+import MonitoringKelas from './pages/Kelas/MonitoringKelas';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -53,6 +54,7 @@ function App() {
             <Route path="rapor"        element={<RaporList />} />
             <Route path="laporan" element={<ComingSoon title="Laporan" />} />
             <Route path="jurusan" element={<JurusanList />} />
+            <Route path="wali-kelas/monitoring" element={<MonitoringKelas />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
