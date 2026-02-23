@@ -1,345 +1,384 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { absensiService } from '../../services/absensiService';
-import { siswaService } from '../../services/siswaService';
-import { kelasService } from '../../services/kelasService';
 import { jadwalService } from '../../services/jadwalService';
+import { kelasService } from '../../services/kelasService';
+import { semesterService } from '../../services/semesterService';
+import { useAuth, extractRole } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
-import Alert from '../../components/Common/Alert';
 
-const AbsensiInput = () => {
-  const [kelas, setKelas] = useState([]);
-  const [jadwal, setJadwal] = useState([]);
-  const [siswa, setSiswa] = useState([]);
-  const [selectedKelas, setSelectedKelas] = useState('');
-  const [selectedJadwal, setSelectedJadwal] = useState('');
+const STATUS_OPTIONS = [
+  { value: 'hadir', label: 'Hadir', color: 'bg-green-500' },
+  { value: 'izin', label: 'Izin', color: 'bg-yellow-500' },
+  { value: 'sakit', label: 'Sakit', color: 'bg-blue-500' },
+  { value: 'alfa', label: 'Alfa', color: 'bg-red-500' },
+];
+
+export default function AbsensiInput() {
+  const { user } = useAuth();
+  const role = extractRole(user);
+  const [searchParams] = useSearchParams();
+  const jadwalIdParam = searchParams.get('jadwal_id');
+
+  const [step, setStep] = useState(1); // 1: Pilih Jadwal, 2: Input Absensi
+  const [jadwalList, setJadwalList] = useState([]);
+  const [selectedJadwal, setSelectedJadwal] = useState(null);
+  const [siswaList, setSiswaList] = useState([]);
+  const [absensiData, setAbsensiData] = useState({});
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-  const [pertemuan, setPertemuan] = useState(1);
-  const [absensiData, setAbsensiData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, type: '', message: '' });
+  const [semesterAktif, setSemesterAktif] = useState(null);
 
-  useEffect(() => {
-    fetchKelas();
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [errMsg, setErrMsg] = useState('');
 
-  useEffect(() => {
-    if (selectedKelas) {
-      fetchJadwal();
-      fetchSiswa();
-    }
-  }, [selectedKelas]);
+  useEffect(() => { init(); }, []);
 
-  useEffect(() => {
-    if (siswa.length > 0) {
-      initializeAbsensiData();
-    }
-  }, [siswa]);
-
-  const fetchKelas = async () => {
+  async function init() {
+    setLoading(true);
     try {
-      const response = await kelasService.getAll();
-      setKelas(response.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data kelas');
-    }
-  };
+      // 1. Ambil semester aktif
+      const semRes = await semesterService.getAktif().catch(() => ({ data: null }));
+      const aktif = semRes.data;
+      setSemesterAktif(aktif);
 
-  const fetchJadwal = async () => {
-    try {
-      const response = await jadwalService.getByKelas(selectedKelas);
-      setJadwal(response.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data jadwal');
-    }
-  };
+      // 2. Ambil jadwal mengajar guru
+      const jadwalRes = await jadwalService.getJadwalSaya({
+        semester_id: aktif?.id,
+      });
+      const raw = jadwalRes.data;
+      const jadwal = raw?.jadwal_per_hari;
 
-  const fetchSiswa = async () => {
-    try {
-      setLoading(true);
-      const response = await siswaService.getByKelas(selectedKelas);
-      setSiswa(response.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data siswa');
+      // Flatten jadwal per hari jadi list
+      let allJadwal = [];
+      if (jadwal) {
+        Object.values(jadwal).forEach(hariJadwal => {
+          if (Array.isArray(hariJadwal)) {
+            allJadwal = [...allJadwal, ...hariJadwal];
+          }
+        });
+      }
+      setJadwalList(allJadwal);
+
+      // 3. Jika ada jadwal_id di URL, langsung pilih
+      if (jadwalIdParam && allJadwal.length > 0) {
+        const selected = allJadwal.find(j => j.id === Number(jadwalIdParam));
+        if (selected) {
+          await selectJadwal(selected);
+        }
+      }
+    } catch (e) {
+      console.error('Error:', e);
+      setErrMsg('Gagal memuat data');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const initializeAbsensiData = () => {
-    const data = siswa.map(s => ({
-      siswa_id: s.id,
-      status: 'H'
-    }));
-    setAbsensiData(data);
-  };
+  async function selectJadwal(jadwal) {
+    setSelectedJadwal(jadwal);
+    setLoading(true);
+    try {
+      // Ambil siswa di kelas
+      const siswaRes = await kelasService.getSiswaByKelas(jadwal.kelas_id);
+      const rawSiswa = siswaRes.data;
+      const siswa = Array.isArray(rawSiswa) ? rawSiswa : (rawSiswa?.siswa || []);
+      setSiswaList(siswa);
 
-  const showAlert = (type, message) => {
-    setAlert({ show: true, type, message });
-    setTimeout(() => setAlert({ show: false, type: '', message: '' }), 3000);
-  };
+      // Cek apakah sudah ada absensi untuk tanggal ini
+      const absensiRes = await absensiService.getAll({
+        jadwal_id: jadwal.id,
+        tanggal: tanggal,
+      });
+      const existing = absensiRes.data;
+      const existingMap = {};
+      if (Array.isArray(existing)) {
+        existing.forEach(a => {
+          existingMap[a.siswa_id] = a.status;
+        });
+      }
 
-  const handleStatusChange = (siswaId, status) => {
-    setAbsensiData(prev =>
-      prev.map(item =>
-        item.siswa_id === siswaId ? { ...item, status } : item
-      )
-    );
-  };
-
-  const handleSelectAll = (status) => {
-    setAbsensiData(prev =>
-      prev.map(item => ({ ...item, status }))
-    );
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedJadwal) {
-      showAlert('error', 'Pilih jadwal terlebih dahulu');
-      return;
+      // Init absensi data dengan status default 'hadir' atau existing
+      const initData = {};
+      siswa.forEach(s => {
+        initData[s.id] = existingMap[s.id] || 'hadir';
+      });
+      setAbsensiData(initData);
+      setStep(2);
+    } catch (e) {
+      console.error('Error:', e);
+      setErrMsg('Gagal memuat siswa');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function handleStatusChange(siswaId, status) {
+    setAbsensiData(prev => ({ ...prev, [siswaId]: status }));
+  }
+
+  function setAllStatus(status) {
+    const newData = {};
+    siswaList.forEach(s => {
+      newData[s.id] = status;
+    });
+    setAbsensiData(newData);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setErrMsg('');
+    setSaving(true);
 
     try {
-      setLoading(true);
-      
+      // Build payload untuk bulk input
+      const absensi = siswaList.map(s => ({
+        siswa_id: s.id,
+        status: absensiData[s.id],
+        keterangan: '',
+      }));
+
       const payload = {
-        jadwal_id: parseInt(selectedJadwal),
-        tanggal,
-        pertemuan_ke: pertemuan,
-        absensi_list: absensiData
+        jadwal_id: selectedJadwal.id,
+        tanggal: tanggal,
+        absensi: absensi,
       };
 
-      await absensiService.inputBatch(payload);
-      showAlert('success', 'Absensi berhasil disimpan');
+      const res = await absensiService.bulkInput(payload);
+      setSuccess(`Absensi berhasil disimpan! ${res.message || ''}`);
+
+      // Reset
+      setTimeout(() => {
+        setStep(1);
+        setSelectedJadwal(null);
+        setSiswaList([]);
+        setAbsensiData({});
+        setSuccess('');
+      }, 2000);
+    } catch (e) {
+      const data = e.response?.data;
       
-      // Reset form
-      initializeAbsensiData();
-      setPertemuan(pertemuan + 1);
-    } catch (error) {
-      showAlert('error', error.response?.data?.message || 'Gagal menyimpan absensi');
+      // Handle 207 multi-status (sebagian berhasil)
+      if (e.response?.status === 207 && data?.data) {
+        const hasil = data.data;
+        const gagal = hasil.filter(h => !h.berhasil);
+        if (gagal.length > 0) {
+          const messages = gagal.map((h, i) => `${i+1}. Siswa ID ${h.siswa_id}: ${h.pesan}`);
+          setErrMsg(`⚠️ ${gagal.length} siswa gagal:\n${messages.join('\n')}`);
+        } else {
+          setSuccess('Semua absensi berhasil disimpan!');
+        }
+        return;
+      }
+
+      // Handle error lainnya
+      const msg = data?.message || e.message || 'Gagal menyimpan absensi';
+      setErrMsg(String(msg));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  };
+  }
 
-  const getStatusBadge = (status) => {
-    const badges = {
-      H: { label: 'Hadir', class: 'badge-success' },
-      I: { label: 'Izin', class: 'badge-info' },
-      S: { label: 'Sakit', class: 'badge-warning' },
-      A: { label: 'Alpha', class: 'badge-error' }
-    };
-    return badges[status] || badges.H;
-  };
-
-  const countStatus = (status) => {
-    return absensiData.filter(item => item.status === status).length;
-  };
+  if (loading && step === 1) return (
+    <div className="flex items-center justify-center h-64"><LoadingSpinner size="lg" /></div>
+  );
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-text">Input Absensi</h1>
-        <p className="text-text-light mt-1">Input absensi siswa per mata pelajaran</p>
+        <p className="text-text-light mt-1">
+          {semesterAktif
+            ? `Semester ${semesterAktif.nama} • ${semesterAktif.tahun_ajaran?.nama}`
+            : 'Semester belum diset'}
+        </p>
       </div>
 
-      {alert.show && <Alert type={alert.type} message={alert.message} />}
+      {success && (
+        <div className="p-4 mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800">
+          ✅ {success}
+        </div>
+      )}
 
-      <form onSubmit={handleSubmit}>
-        {/* Filter Section */}
-        <div className="card p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">Kelas *</label>
-              <select
-                value={selectedKelas}
-                onChange={(e) => setSelectedKelas(e.target.value)}
-                className="input-field"
-                required
-              >
-                <option value="">Pilih Kelas</option>
-                {kelas.map((k) => (
-                  <option key={k.id} value={k.id}>{k.nama}</option>
+      {errMsg && (
+        <div className="p-4 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 whitespace-pre-line">
+          {errMsg}
+        </div>
+      )}
+
+      {/* Step 1: Pilih Jadwal */}
+      {step === 1 && (
+        <div>
+          <div className="card p-6 mb-4">
+            <h3 className="font-semibold text-text mb-4">Pilih Jadwal Pelajaran</h3>
+            
+            {jadwalList.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4">📅</div>
+                <p className="text-text-light">Tidak ada jadwal mengajar untuk semester ini.</p>
+                <p className="text-text-light text-sm mt-2">
+                  Hubungi admin untuk menambahkan jadwal Anda.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {jadwalList.map(j => (
+                  <button
+                    key={j.id}
+                    onClick={() => selectJadwal(j)}
+                    className="p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-left"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="badge badge-info">{j.kelas?.nama}</span>
+                      <span className="text-xs text-text-light font-mono">
+                        {['', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][j.hari_ke]}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-text mb-1">{j.mata_pelajaran?.nama}</p>
+                    <p className="text-sm text-text-light font-mono">
+                      {j.jam_mulai} - {j.jam_selesai}
+                    </p>
+                  </button>
                 ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">Mata Pelajaran *</label>
-              <select
-                value={selectedJadwal}
-                onChange={(e) => setSelectedJadwal(e.target.value)}
-                className="input-field"
-                required
-                disabled={!selectedKelas}
-              >
-                <option value="">Pilih Mata Pelajaran</option>
-                {jadwal.map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.mata_pelajaran?.nama_mapel} - {j.hari} ({j.jam_mulai?.substring(0, 5)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">Tanggal *</label>
-              <input
-                type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                className="input-field"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">Pertemuan Ke *</label>
-              <input
-                type="number"
-                value={pertemuan}
-                onChange={(e) => setPertemuan(parseInt(e.target.value))}
-                className="input-field"
-                min="1"
-                required
-              />
-            </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Statistics */}
-        {siswa.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="card p-4">
-              <div className="text-sm text-text-light mb-1">Hadir</div>
-              <div className="text-2xl font-bold text-success">{countStatus('H')}</div>
-            </div>
-            <div className="card p-4">
-              <div className="text-sm text-text-light mb-1">Izin</div>
-              <div className="text-2xl font-bold text-info">{countStatus('I')}</div>
-            </div>
-            <div className="card p-4">
-              <div className="text-sm text-text-light mb-1">Sakit</div>
-              <div className="text-2xl font-bold text-warning">{countStatus('S')}</div>
-            </div>
-            <div className="card p-4">
-              <div className="text-sm text-text-light mb-1">Alpha</div>
-              <div className="text-2xl font-bold text-error">{countStatus('A')}</div>
+      {/* Step 2: Input Absensi */}
+      {step === 2 && selectedJadwal && (
+        <form onSubmit={handleSubmit}>
+          {/* Info Jadwal */}
+          <div className="card p-6 mb-4 bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-primary mb-1">
+                  {selectedJadwal.mata_pelajaran?.nama}
+                </h3>
+                <p className="text-text-light">
+                  Kelas {selectedJadwal.kelas?.nama} • {['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][selectedJadwal.hari_ke]} • {selectedJadwal.jam_mulai} - {selectedJadwal.jam_selesai}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setSelectedJadwal(null);
+                }}
+                className="btn-secondary"
+              >
+                ← Ganti Jadwal
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Quick Actions */}
-        {siswa.length > 0 && (
-          <div className="card p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-text">Tandai Semua:</span>
-              <button
-                type="button"
-                onClick={() => handleSelectAll('H')}
-                className="px-3 py-1 bg-success text-white rounded text-sm hover:bg-green-600"
-              >
-                Hadir
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectAll('I')}
-                className="px-3 py-1 bg-info text-white rounded text-sm hover:bg-blue-600"
-              >
-                Izin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectAll('S')}
-                className="px-3 py-1 bg-warning text-white rounded text-sm hover:bg-yellow-600"
-              >
-                Sakit
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectAll('A')}
-                className="px-3 py-1 bg-error text-white rounded text-sm hover:bg-red-600"
-              >
-                Alpha
-              </button>
+          {/* Tanggal & Quick Actions */}
+          <div className="card p-4 mb-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-text">Tanggal:</label>
+                <input
+                  type="date"
+                  value={tanggal}
+                  onChange={(e) => setTanggal(e.target.value)}
+                  className="input-field w-auto"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-sm text-text-light mr-2">Set Semua:</span>
+                {STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setAllStatus(opt.value)}
+                    className={`px-3 py-1 rounded text-xs font-medium text-white ${opt.color}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Student List */}
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : siswa.length === 0 ? (
-          <div className="card p-8 text-center text-text-light">
-            {selectedKelas ? 'Belum ada siswa di kelas ini' : 'Pilih kelas terlebih dahulu'}
-          </div>
-        ) : (
+          {/* Daftar Siswa */}
           <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="table-auto">
-                <thead>
-                  <tr>
-                    <th className="w-16">No</th>
-                    <th>NISN</th>
-                    <th>Nama Siswa</th>
-                    <th className="text-center">Status Kehadiran</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {siswa.map((s, index) => {
-                    const absensi = absensiData.find(a => a.siswa_id === s.id);
-                    return (
+            {loading ? (
+              <div className="flex justify-center py-12"><LoadingSpinner /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table-auto">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>NISN</th>
+                      <th>Nama Siswa</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {siswaList.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-10 text-text-light">
+                          Belum ada siswa di kelas ini
+                        </td>
+                      </tr>
+                    ) : siswaList.map((s, i) => (
                       <tr key={s.id}>
-                        <td className="text-center">{index + 1}</td>
-                        <td>{s.nisn}</td>
+                        <td>{i + 1}</td>
+                        <td className="font-mono text-sm">{s.nisn}</td>
                         <td className="font-medium">{s.nama}</td>
                         <td>
-                          <div className="flex justify-center gap-2">
-                            {['H', 'I', 'S', 'A'].map(status => (
+                          <div className="flex gap-2">
+                            {STATUS_OPTIONS.map(opt => (
                               <button
-                                key={status}
+                                key={opt.value}
                                 type="button"
-                                onClick={() => handleStatusChange(s.id, status)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                  absensi?.status === status
-                                    ? status === 'H' ? 'bg-success text-white'
-                                    : status === 'I' ? 'bg-info text-white'
-                                    : status === 'S' ? 'bg-warning text-white'
-                                    : 'bg-error text-white'
-                                    : 'bg-gray-100 text-text-light hover:bg-gray-200'
+                                onClick={() => handleStatusChange(s.id, opt.value)}
+                                className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                  absensiData[s.id] === opt.value
+                                    ? `${opt.color} text-white`
+                                    : 'bg-gray-100 text-text hover:bg-gray-200'
                                 }`}
                               >
-                                {getStatusBadge(status).label}
+                                {opt.label}
                               </button>
                             ))}
                           </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Submit Button */}
-        {siswa.length > 0 && (
-          <div className="flex justify-end gap-3 mt-6">
-            <button type="button" className="btn-secondary">
+          {/* Submit */}
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setStep(1);
+                setSelectedJadwal(null);
+              }}
+              className="btn-secondary"
+            >
               Batal
             </button>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? <LoadingSpinner size="sm" /> : '💾 Simpan Absensi'}
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={saving || siswaList.length === 0}
+            >
+              {saving ? 'Menyimpan...' : `💾 Simpan Absensi (${siswaList.length} Siswa)`}
             </button>
           </div>
-        )}
-      </form>
+        </form>
+      )}
     </div>
   );
-};
-
-export default AbsensiInput;
+}
