@@ -97,8 +97,25 @@ export default function UserList() {
       fetchAll();
     } catch (e) {
       const data = e.response?.data;
-      const msg  = data?.errors || data?.message || e.message || 'Gagal menyimpan';
-      setErrMsg(typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
+      
+      // Ekstrak pesan error yang user-friendly
+      let msg = 'Gagal menyimpan data user';
+      
+      if (data?.message) {
+        msg = data.message;
+      } else if (data?.errors) {
+        // Jika errors adalah object, ambil values-nya
+        if (typeof data.errors === 'object' && !Array.isArray(data.errors)) {
+          const errorValues = Object.values(data.errors);
+          msg = errorValues.join('\n');
+        } else {
+          msg = String(data.errors);
+        }
+      } else if (e.message) {
+        msg = e.message;
+      }
+      
+      setErrMsg(msg);
     } finally {
       setSaving(false);
     }
@@ -192,8 +209,8 @@ export default function UserList() {
         title={editMode ? 'Edit User' : 'Tambah User Baru'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {errMsg && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-              <strong>Error:</strong> {errMsg}
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 whitespace-pre-line">
+              {errMsg}
             </div>
           )}
 
