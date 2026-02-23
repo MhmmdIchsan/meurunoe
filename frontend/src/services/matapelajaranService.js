@@ -1,33 +1,28 @@
-import api from "../utils/api";
+import api from '../utils/api';
 
 export const mataPelajaranService = {
-  getAll: async (search = "") => {
-    const res = await api.get("/mata-pelajaran", {
-      params: { search }
-    });
-    return res.data;
+  getAll: async (params) => {
+    const response = await api.get('/mata-pelajaran', { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/mata-pelajaran/${id}`);
+    return response.data;
   },
 
   create: async (data) => {
-    const res = await api.post("/mata-pelajaran", {
-      kode: data.kode,
-      nama: data.nama,
-      kkm: Number(data.kkm)
-    });
-    return res.data;
+    const response = await api.post('/mata-pelajaran', data);
+    return response.data;
   },
 
   update: async (id, data) => {
-    const res = await api.put(`/mata-pelajaran/${id}`, {
-      kode: data.kode,
-      nama: data.nama,
-      kkm: Number(data.kkm)
-    });
-    return res.data;
+    const response = await api.put(`/mata-pelajaran/${id}`, data);
+    return response.data;
   },
 
   delete: async (id) => {
-    const res = await api.delete(`/mata-pelajaran/${id}`);
-    return res.data;
-  }
+    const response = await api.delete(`/mata-pelajaran/${id}`);
+    return response.data;
+  },
 };
