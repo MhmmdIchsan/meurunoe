@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import { Link } from 'react-router-dom';
 
+import { exportAbsensiToPDF } from '../../utils/pdfExport';
+
 export default function MonitoringKelas() {
   const { user } = useAuth();
   const [kelas, setKelas]             = useState(null);
@@ -354,7 +356,13 @@ function TabAbsensi({ kelasId, semester, rekapAbsensi }) {
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end gap-3">
+        <button
+          onClick={() => exportAbsensiToPDF({ kelas, semester, rekapAbsensi: sorted })}
+          className="btn-secondary"
+        >
+          📄 Export PDF
+        </button>
         <Link to="/absensi" className="btn-primary">
           Input Absensi Baru
         </Link>

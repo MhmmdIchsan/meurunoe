@@ -14,6 +14,8 @@ const STATUS_OPTIONS = [
   { value: 'alfa', label: 'Alfa', color: 'bg-red-500' },
 ];
 
+import { notifyAbsensiSaved } from '../../utils/notifications';
+
 export default function AbsensiInput() {
   const { user } = useAuth();
   const role = extractRole(user);
@@ -147,6 +149,12 @@ export default function AbsensiInput() {
 
       const res = await absensiService.bulkInput(payload);
       setSuccess(`Absensi berhasil disimpan! ${res.message || ''}`);
+
+      // Trigger notification
+      notifyAbsensiSaved(
+        selectedJadwal.kelas?.nama || 'Kelas',
+        siswaList.length
+      );
 
       // Reset
       setTimeout(() => {
