@@ -130,7 +130,7 @@ export default function MonitoringKelas() {
       )}
       {activeTab === 'siswa' && <TabSiswa siswa={siswa} />}
       {activeTab === 'absensi' && (
-        <TabAbsensi kelasId={kelas.id} semester={semester} rekapAbsensi={rekapAbsensi} />
+        <TabAbsensi kelasId={kelas.id} kelas={kelas} semester={semester} rekapAbsensi={rekapAbsensi} />
       )}
     </div>
   );
@@ -280,7 +280,7 @@ function TabSiswa({ siswa }) {
 // ═══════════════════════════════════════════════════════════════
 // TAB: REKAP ABSENSI
 // ═══════════════════════════════════════════════════════════════
-function TabAbsensi({ kelasId, semester, rekapAbsensi }) {
+function TabAbsensi({ kelasId, kelas, semester, rekapAbsensi }) {
   if (!semester) {
     return (
       <div className="card p-12 text-center">
