@@ -1,258 +1,279 @@
 import { useState, useEffect } from 'react';
-import { raporService } from '../../services/raporService';
-import { siswaService } from '../../services/siswaService';
+import { useAuth, extractRole } from '../../context/AuthContext';
 import { kelasService } from '../../services/kelasService';
+import { semesterService } from '../../services/semesterService';
+import { nilaiService } from '../../services/nilaiService';
+import { absensiService } from '../../services/absensiService';
+import { exportRaporToPDF } from '../../utils/pdfExport';
+import { notifyRaporReady } from '../../utils/notifications';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
-import Alert from '../../components/Common/Alert';
 
-const RaporList = () => {
-  const [rapor, setRapor] = useState([]);
-  const [siswa, setSiswa] = useState([]);
-  const [kelas, setKelas] = useState([]);
-  const [selectedKelas, setSelectedKelas] = useState('');
-  const [selectedSiswa, setSelectedSiswa] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, type: '', message: '' });
+export default function RaporList() {
+  const { user } = useAuth();
+  const role = extractRole(user);
 
-  useEffect(() => {
-    fetchKelas();
-  }, []);
+  const [step, setStep] = useState(1); // 1: Pilih, 2: Preview & Generate
+  const [kelasList, setKelasList]       = useState([]);
+  const [semesterList, setSemesterList] = useState([]);
+  const [siswaList, setSiswaList]       = useState([]);
 
-  useEffect(() => {
-    if (selectedKelas) {
-      fetchSiswa();
-    }
-  }, [selectedKelas]);
+  const [selectedKelas, setSelectedKelas]   = useState('');
+  const [selectedSemester, setSelectedSemester] = useState('');
+  const [selectedSiswa, setSelectedSiswa]   = useState(null);
+  
+  const [raporData, setRaporData] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [success, setSuccess]     = useState('');
+  const [errMsg, setErrMsg]       = useState('');
 
-  useEffect(() => {
-    if (selectedSiswa) {
-      fetchRapor();
-    }
-  }, [selectedSiswa]);
+  useEffect(() => { init(); }, []);
 
-  const fetchKelas = async () => {
+  async function init() {
+    setLoading(true);
     try {
-      const response = await kelasService.getAll();
-      setKelas(response.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data kelas');
-    }
-  };
+      const [semRes, semAktifRes, kelasRes] = await Promise.all([
+        semesterService.getAll(),
+        semesterService.getAktif().catch(() => ({ data: null })),
+        kelasService.getAll(),
+      ]);
 
-  const fetchSiswa = async () => {
-    try {
-      const response = await siswaService.getByKelas(selectedKelas);
-      setSiswa(response.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data siswa');
-    }
-  };
+      const rawSem = semRes.data;
+      setSemesterList(Array.isArray(rawSem) ? rawSem : (rawSem?.data || []));
 
-  const fetchRapor = async () => {
-    try {
-      setLoading(true);
-      const response = await raporService.getBySiswa(selectedSiswa);
-      setRapor(response.data.data || []);
-    } catch (error) {
-      showAlert('error', 'Gagal memuat data rapor');
+      const aktif = semAktifRes.data;
+      if (aktif) setSelectedSemester(String(aktif.id));
+
+      const rawKelas = kelasRes.data;
+      setKelasList(Array.isArray(rawKelas) ? rawKelas : (rawKelas?.data || []));
+    } catch (e) {
+      console.error('Error:', e);
+      setErrMsg('Gagal memuat data');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const showAlert = (type, message) => {
-    setAlert({ show: true, type, message });
-    setTimeout(() => setAlert({ show: false, type: '', message: '' }), 3000);
-  };
-
-  const handleDownload = async (id, siswaName, semester, tahunAjaran) => {
-    try {
-      setLoading(true);
-      const response = await raporService.download(id);
-      
-      // Create blob and download
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Rapor_${siswaName}_${semester}_${tahunAjaran}.pdf`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-      
-      showAlert('success', 'Rapor berhasil didownload');
-    } catch (error) {
-      showAlert('error', 'Gagal mendownload rapor');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (!selectedSiswa) {
-      showAlert('error', 'Pilih siswa terlebih dahulu');
+  async function handleSelectKelas() {
+    if (!selectedKelas) {
+      setErrMsg('Pilih kelas terlebih dahulu');
       return;
     }
 
+    setLoading(true);
+    setErrMsg('');
     try {
-      setLoading(true);
-      await raporService.generate({
-        siswa_id: parseInt(selectedSiswa),
-        semester: 'Ganjil',
-        tahun_ajaran: '2024/2025'
-      });
-      showAlert('success', 'Rapor berhasil digenerate');
-      fetchRapor();
-    } catch (error) {
-      showAlert('error', error.response?.data?.message || 'Gagal generate rapor');
+      const siswaRes = await kelasService.getSiswaByKelas(selectedKelas);
+      const rawSiswa = siswaRes.data;
+      const siswa = Array.isArray(rawSiswa) ? rawSiswa : (rawSiswa?.siswa || []);
+      setSiswaList(siswa);
+      setStep(2);
+    } catch (e) {
+      console.error('Error:', e);
+      setErrMsg('Gagal memuat siswa');
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  async function handleGenerateRapor(siswa) {
+    setGenerating(true);
+    setErrMsg('');
+    setSuccess('');
+
+    try {
+      // Fetch nilai siswa
+      const nilaiRes = await nilaiService.getNilaiSiswa(siswa.id, {
+        semester_id: selectedSemester,
+      });
+      const nilaiData = nilaiRes.data;
+
+      // Fetch rekap absensi siswa
+      const absensiRes = await absensiService.getRekapSiswa(siswa.id, {
+        semester_id: selectedSemester,
+      });
+      const absensiData = absensiRes.data;
+
+      const kelasObj = kelasList.find(k => k.id === Number(selectedKelas));
+      const semesterObj = semesterList.find(s => s.id === Number(selectedSemester));
+
+      // Generate PDF
+      exportRaporToPDF({
+        siswa: {
+          ...siswa,
+          kelas: kelasObj,
+        },
+        semester: semesterObj,
+        nilai: nilaiData?.nilai || [],
+        rataRata: nilaiData?.rata_rata || 0,
+        predikat: nilaiData?.predikat_umum || '-',
+        absensi: {
+          hadir: absensiData?.hadir || 0,
+          izin: absensiData?.izin || 0,
+          sakit: absensiData?.sakit || 0,
+          alfa: absensiData?.alfa || 0,
+        },
+      });
+
+      notifyRaporReady(siswa.nama, semesterObj?.nama || 'Semester');
+      setSuccess(`Rapor ${siswa.nama} berhasil di-generate!`);
+
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e) {
+      console.error('Error:', e);
+      const msg = e.response?.data?.message || e.message || 'Gagal generate rapor';
+      setErrMsg(msg);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const kelasObj = kelasList.find(k => k.id === Number(selectedKelas));
+  const semesterObj = semesterList.find(s => s.id === Number(selectedSemester));
+
+  if (loading && step === 1) return (
+    <div className="flex items-center justify-center h-64"><LoadingSpinner size="lg" /></div>
+  );
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text">Rapor Siswa</h1>
-          <p className="text-text-light mt-1">Kelola dan download rapor siswa</p>
-        </div>
-        <button 
-          onClick={handleGenerate}
-          className="btn-primary"
-          disabled={!selectedSiswa || loading}
-        >
-          <span className="mr-2">📄</span>
-          Generate Rapor
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-text">Generate Rapor</h1>
+        <p className="text-text-light mt-1">Cetak rapor siswa per semester</p>
       </div>
 
-      {alert.show && <Alert type={alert.type} message={alert.message} />}
-
-      {/* Filter Section */}
-      <div className="card p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">Pilih Kelas</label>
-            <select
-              value={selectedKelas}
-              onChange={(e) => {
-                setSelectedKelas(e.target.value);
-                setSelectedSiswa('');
-                setRapor([]);
-              }}
-              className="input-field"
-            >
-              <option value="">-- Pilih Kelas --</option>
-              {kelas.map((k) => (
-                <option key={k.id} value={k.id}>{k.nama_kelas}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text mb-2">Pilih Siswa</label>
-            <select
-              value={selectedSiswa}
-              onChange={(e) => setSelectedSiswa(e.target.value)}
-              className="input-field"
-              disabled={!selectedKelas}
-            >
-              <option value="">-- Pilih Siswa --</option>
-              {siswa.map((s) => (
-                <option key={s.id} value={s.id}>{s.nisn} - {s.nama}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Rapor List */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : !selectedSiswa ? (
-        <div className="card p-8 text-center text-text-light">
-          Pilih kelas dan siswa untuk melihat rapor
-        </div>
-      ) : rapor.length === 0 ? (
-        <div className="card p-8 text-center">
-          <div className="text-text-light mb-4">
-            Belum ada rapor untuk siswa ini
-          </div>
-          <button onClick={handleGenerate} className="btn-primary">
-            <span className="mr-2">📄</span>
-            Generate Rapor Sekarang
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {rapor.map((r) => (
-            <div key={r.id} className="card p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center text-3xl">
-                  📄
-                </div>
-                <span className="badge badge-info">{r.status || 'Final'}</span>
-              </div>
-
-              <h3 className="text-lg font-semibold text-text mb-2">
-                Rapor {r.semester}
-              </h3>
-              <p className="text-sm text-text-light mb-4">
-                Tahun Ajaran {r.tahun_ajaran}
-              </p>
-
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-light">Rata-rata Nilai:</span>
-                  <span className="font-semibold text-text">
-                    {r.rata_rata ? r.rata_rata.toFixed(2) : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-light">Ranking:</span>
-                  <span className="font-semibold text-text">{r.ranking || '-'}</span>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <button
-                  onClick={() => handleDownload(
-                    r.id,
-                    siswa.find(s => s.id === parseInt(selectedSiswa))?.nama || 'Siswa',
-                    r.semester,
-                    r.tahun_ajaran
-                  )}
-                  className="w-full btn-primary"
-                  disabled={loading}
-                >
-                  <span className="mr-2">⬇️</span>
-                  Download PDF
-                </button>
-              </div>
-            </div>
-          ))}
+      {success && (
+        <div className="p-4 mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800">
+          ✅ {success}
         </div>
       )}
 
-      {/* Info Card */}
-      <div className="card p-6 mt-6 bg-blue-50 border-blue-200">
-        <div className="flex items-start gap-4">
-          <div className="text-3xl">ℹ️</div>
-          <div>
-            <h4 className="font-semibold text-text mb-2">Informasi Rapor</h4>
-            <ul className="text-sm text-text-light space-y-1">
-              <li>• Rapor dapat didownload dalam format PDF</li>
-              <li>• Generate rapor akan mengambil semua nilai siswa pada semester yang dipilih</li>
-              <li>• Pastikan semua nilai sudah diinput sebelum generate rapor</li>
-              <li>• Rapor dapat digenerate ulang jika ada perubahan nilai</li>
-            </ul>
+      {errMsg && (
+        <div className="p-4 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 whitespace-pre-line">
+          {errMsg}
+        </div>
+      )}
+
+      {/* Step 1: Pilih Kelas & Semester */}
+      {step === 1 && (
+        <div className="card p-6">
+          <h3 className="font-semibold text-text mb-4">Pilih Kelas & Semester</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">Kelas *</label>
+              <select
+                value={selectedKelas}
+                onChange={(e) => setSelectedKelas(e.target.value)}
+                className="input-field"
+              >
+                <option value="">-- Pilih Kelas --</option>
+                {kelasList.map(k => (
+                  <option key={k.id} value={k.id}>{k.nama}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text mb-2">Semester *</label>
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="input-field"
+              >
+                <option value="">-- Pilih Semester --</option>
+                {semesterList.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.nama} - {s.tahun_ajaran?.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleSelectKelas}
+              className="btn-primary"
+              disabled={!selectedKelas || !selectedSemester}
+            >
+              Lanjutkan →
+            </button>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Step 2: Pilih Siswa & Generate */}
+      {step === 2 && (
+        <div>
+          {/* Info Header */}
+          <div className="card p-6 mb-4 bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-primary mb-1">
+                  Kelas {kelasObj?.nama || '-'}
+                </h3>
+                <p className="text-text-light">
+                  Semester {semesterObj?.nama || '-'} • {semesterObj?.tahun_ajaran?.nama || '-'}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setStep(1);
+                  setSiswaList([]);
+                }}
+                className="btn-secondary"
+              >
+                ← Ganti Kelas
+              </button>
+            </div>
+          </div>
+
+          {/* Daftar Siswa */}
+          <div className="card overflow-hidden">
+            {loading ? (
+              <div className="flex justify-center py-12"><LoadingSpinner /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table-auto">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>NISN</th>
+                      <th>Nama Siswa</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {siswaList.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-10 text-text-light">
+                          Belum ada siswa di kelas ini
+                        </td>
+                      </tr>
+                    ) : siswaList.map((s, i) => (
+                      <tr key={s.id}>
+                        <td>{i + 1}</td>
+                        <td className="font-mono text-sm">{s.nisn}</td>
+                        <td className="font-medium">{s.nama}</td>
+                        <td>
+                          <button
+                            onClick={() => handleGenerateRapor(s)}
+                            disabled={generating}
+                            className="btn-primary text-sm"
+                          >
+                            {generating ? '⏳ Generating...' : '📄 Generate Rapor'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default RaporList;
+}
