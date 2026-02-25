@@ -16,6 +16,8 @@ import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
 import JurusanList from './pages/Jurusan/JurusanList';
 import MataPelajaranList from './pages/MataPelajaran/MataPelajaranList';
 import MonitoringKelas from './pages/Kelas/MonitoringKelas';
+import NilaiInput from './pages/Nilai/NilaiInput';
+import NilaiSiswa from './pages/Nilai/NilaiSiswa';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -50,7 +52,8 @@ function App() {
             <Route path="tahun-ajaran" element={<TahunAjaranList />} />
             <Route path="jadwal"       element={<JadwalList />} />
             <Route path="absensi"      element={<AbsensiInput />} />
-            <Route path="nilai"        element={<ComingSoon title="Penilaian" />} />
+            <Route path="nilai"        element={<NilaiInput />} />
+            <Route path="nilai-saya"   element={<NilaiSiswa />} />
             <Route path="rapor"        element={<RaporList />} />
             <Route path="laporan" element={<ComingSoon title="Laporan" />} />
             <Route path="jurusan" element={<JurusanList />} />
