@@ -3,7 +3,7 @@ import { useAuth, extractRole } from '../../context/AuthContext';
 
 const ALL_MENU = [
   { title: 'Dashboard',      path: '/dashboard',    icon: '📊',
-    roles: ['admin','kepala sekolah','guru','wali_kelas','siswa','orang tua'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa','orang_tua'] },
   { title: 'Manajemen User', path: '/users',         icon: '👥',  roles: ['admin'] },
   
   // KHUSUS wali_kelas
@@ -11,23 +11,23 @@ const ALL_MENU = [
     roles: ['wali_kelas'] },
   
   { title: 'Data Siswa',     path: '/siswa',         icon: '🎓',
-    roles: ['admin','kepala sekolah','guru','wali_kelas'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Data Guru',      path: '/guru',          icon: '👨‍🏫',
-    roles: ['admin','kepala sekolah'] },
+    roles: ['admin','kepala_sekolah'] },
   { title: 'Data Kelas',     path: '/kelas',         icon: '🏫',
-    roles: ['admin','kepala sekolah','guru','wali_kelas'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Mata Pelajaran', path: '/mapel',         icon: '📚',  roles: ['admin'] },
   { title: 'Tahun Ajaran',   path: '/tahun-ajaran',  icon: '🗓️',  roles: ['admin'] },
   { title: 'Jadwal Pelajaran', path: '/jadwal',      icon: '📅',
-    roles: ['admin','kepala sekolah','guru','wali_kelas','siswa'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa'] },
   { title: 'Absensi',        path: '/absensi',       icon: '✅',
-    roles: ['admin','guru','wali_kelas','siswa','orang tua'] },
+    roles: ['admin','guru','wali_kelas','siswa','orang_tua'] },
   { title: 'Penilaian',      path: '/nilai',         icon: '📝',
-    roles: ['admin','guru','wali_kelas','siswa','orang tua'] },
+    roles: ['admin','guru','wali_kelas','siswa','orang_tua'] },
   { title: 'Rapor',          path: '/rapor',         icon: '📄',
-    roles: ['admin','kepala sekolah','guru','wali_kelas','siswa','orang tua'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa','orang_tua'] },
   { title: 'Laporan',        path: '/laporan',       icon: '📈',
-    roles: ['admin','kepala sekolah'] },
+    roles: ['admin','kepala_sekolah'] },
 ];
 
 export default function Sidebar() {
@@ -41,9 +41,9 @@ export default function Sidebar() {
     item.roles.some(r => role === r || role.includes(r) || r.includes(role))
   );
 
-  // Adjust path untuk siswa/orang tua (nilai-saya)
+  // Adjust path untuk siswa/orang_tua (nilai-saya)
   const adjustedMenu = menu.map(item => {
-    if (item.path === '/nilai' && (role === 'siswa' || role === 'orang tua')) {
+    if (item.path === '/nilai' && (role === 'siswa' || role === 'orang_tua')) {
       return { ...item, path: '/nilai-saya', title: 'Nilai Saya' };
     }
     return item;
