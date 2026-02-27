@@ -81,24 +81,27 @@ type Siswa struct {
 }
 
 type OrangTua struct {
-	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    uint           `gorm:"uniqueIndex;not null" json:"user_id"`
-	Nama      string         `gorm:"type:varchar(100);not null" json:"nama"`
-	Telepon   string         `gorm:"type:varchar(20)" json:"telepon"`
-	Alamat    string         `gorm:"type:text" json:"alamat"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	User      User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
+    ID        uint      `gorm:"primaryKey" json:"id"`
+    UserID    uint      `gorm:"not null" json:"user_id"`
+    Nama      string    `gorm:"not null" json:"nama"`
+    Telepon   string    `json:"telepon"`
+    Pekerjaan string    `json:"pekerjaan"`
+    Alamat    string    `json:"alamat"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+    
+    // Relations
+    User   User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
+    Siswa  []Siswa `gorm:"many2many:orang_tua_siswa;" json:"siswa,omitempty"`
 }
 
-// Tabel pivot orang tua – siswa (many-to-many)
 type OrangTuaSiswa struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	OrangTuaID uint      `gorm:"not null;index" json:"orang_tua_id"`
-	SiswaID    uint      `gorm:"not null;index" json:"siswa_id"`
-	Hubungan   string    `gorm:"type:varchar(20)" json:"hubungan"` // "Ayah", "Ibu", "Wali"
-	CreatedAt  time.Time `json:"created_at"`
+    ID         uint      `gorm:"primaryKey" json:"id"`
+    OrangTuaID uint      `gorm:"not null" json:"orang_tua_id"`
+    SiswaID    uint      `gorm:"not null" json:"siswa_id"`
+    Hubungan   string    `gorm:"type:enum('ayah','ibu','wali');default:'wali'" json:"hubungan"`
+    CreatedAt  time.Time `json:"created_at"`
+    UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // ── Akademik Operasional ───────────────────────────────────────
