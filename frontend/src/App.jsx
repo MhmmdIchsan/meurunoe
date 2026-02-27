@@ -14,7 +14,7 @@ import AbsensiInput from './pages/Absensi/AbsensiInput';
 import RaporList    from './pages/Rapor/RaporList';
 import JurusanList from './pages/Jurusan/JurusanList';
 import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
-import MapelList from './pages/Mapel/MapelList';
+import MatapelajaranList from './pages/MataPelajaran/MatapelajaranList';
 
 // Nilai
 import NilaiInput from './pages/Nilai/NilaiInput';
@@ -59,7 +59,7 @@ function App() {
             <Route path="siswa"        element={<SiswaList />} />
             <Route path="guru"         element={<GuruList />} />
             <Route path="kelas"        element={<KelasList />} />
-            <Route path="mapel"        element={<MapelList />} />
+            <Route path="mapel"        element={<MatapelajaranList />} />
             <Route path="jurusan"      element={<JurusanList />} />
             <Route path="tahun-ajaran" element={<TahunAjaranList />} />
             <Route path="jadwal"       element={<JadwalList />} />
