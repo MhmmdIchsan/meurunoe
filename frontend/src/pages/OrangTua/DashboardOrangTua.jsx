@@ -28,17 +28,31 @@ export default function DashboardOrangTua() {
       setSemesterAktif(aktif);
 
       // Fetch anak-anak dari orang tua yang login
-      const anakRes = await orangTuaService.getAnakSaya();
-      const rawAnak = anakRes.data;
-      const anak = Array.isArray(rawAnak) ? rawAnak : (rawAnak?.siswa || []);
-      
-      setAnakList(anak);
+      try {
+        const anakRes = await orangTuaService.getAnakSaya();
+        const rawAnak = anakRes.data;
+        const anak = Array.isArray(rawAnak) ? rawAnak : (rawAnak?.siswa || []);
+        
+        setAnakList(anak);
 
-      if (anak.length > 0 && aktif) {
-        // Auto select first child
-        await selectAnak(anak[0].id, aktif.id);
-      } else if (anak.length === 0) {
-        setErrMsg('Belum ada anak yang terdaftar. Hubungi admin untuk menghubungkan akun Anda dengan siswa.');
+        if (anak.length > 0 && aktif) {
+          await selectAnak(anak[0].id, aktif.id);
+        } else if (anak.length === 0) {
+          setErrMsg('Belum ada anak yang terdaftar. Hubungi admin untuk menghubungkan akun Anda dengan siswa.');
+        }
+      } catch (backendError) {
+        // Fallback: Backend endpoint belum ready
+        console.warn('Backend endpoint /orang-tua/saya/anak belum tersedia, menggunakan fallback');
+        
+        // Temporary: Show demo data dengan instruksi
+        setErrMsg(
+          'Fitur Orang Tua memerlukan implementasi backend.\n\n' +
+          '📋 Backend Requirements:\n' +
+          '1. Buat table: orang_tua, orang_tua_siswa\n' +
+          '2. Implement endpoint: GET /orang-tua/saya/anak\n' +
+          '3. Assign orang tua ke siswa via Admin\n\n' +
+          'Lihat dokumentasi di ORANGTUA_MANAGEMENT_GUIDE.md untuk detail lengkap.'
+        );
       }
     } catch (e) {
       console.error('Error:', e);
