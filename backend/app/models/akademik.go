@@ -99,7 +99,7 @@ type OrangTuaSiswa struct {
     ID         uint      `gorm:"primaryKey" json:"id"`
     OrangTuaID uint      `gorm:"not null" json:"orang_tua_id"`
     SiswaID    uint      `gorm:"not null" json:"siswa_id"`
-    Hubungan   string    `gorm:"type:enum('ayah','ibu','wali');default:'wali'" json:"hubungan"`
+    Hubungan   string    `gorm:"type:varchar(10);default:'wali'" json:"hubungan"`
     CreatedAt  time.Time `json:"created_at"`
     UpdatedAt  time.Time `json:"updated_at"`
 }
