@@ -209,8 +209,8 @@ func RegisterRoutes(r *gin.Engine) {
 				middlewares.RoleMiddleware(models.RoleAdmin),
 				controllers.GetOrangTua,
 			)
-			otRoute.GET("/anak-saya",
-				middlewares.RoleMiddleware(models.RoleOrangTua),
+			otRoute.GET("/saya/anak",
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleOrangTua),
 				controllers.GetAnakByOrangTua,
 			)
 			otRoute.GET("/:id",
@@ -231,6 +231,11 @@ func RegisterRoutes(r *gin.Engine) {
 				middlewares.RoleMiddleware(models.RoleAdmin),
 				middlewares.ActivityLogger("DELETE", "orang_tua"),
 				controllers.DeleteOrangTua,
+			)
+			otRoute.POST("/:id/assign-siswa",
+				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.ActivityLogger("ASSIGN_SISWA", "orang_tua"),
+				controllers.AssignSiswa,
 			)
 		}
 
