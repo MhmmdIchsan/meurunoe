@@ -28,7 +28,7 @@ import DashboardAnalytics from './pages/Analytics/DashboardAnalytics';
 import LaporanList from './pages/Laporan/LaporanList';
 
 // Orang Tua
-import DashboardOrangTua from './pages/OrangTua/DashboardOrangTua';
+import OrangTuaList from './pages/OrangTua/OrangTuaList';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -69,8 +69,7 @@ function App() {
             <Route path="rapor"        element={<RaporList />} />
             <Route path="analytics"    element={<DashboardAnalytics />} />
             <Route path="laporan"      element={<LaporanList />} />
-            <Route path="orang-tua"    element={<DashboardOrangTua />} />
-            
+            <Route path="orang-tua" element={<OrangTuaList />} />            
             {/* Wali Kelas Routes */}
             <Route path="wali-kelas/monitoring" element={<MonitoringKelas />} />
           </Route>
