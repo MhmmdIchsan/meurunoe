@@ -237,3 +237,41 @@ func GetAnakByOrangTua(c *gin.Context) {
 		"total":     len(anakList),
 	})
 }
+
+// AssignSiswa godoc
+// @Summary Assign/unassign siswa ke orang tua
+// @Tags Orang Tua
+// @Security BearerAuth
+// @Router /orang-tua/{id}/assign-siswa [post]
+func AssignSiswa(c *gin.Context) {
+    var ot models.OrangTua
+    if err := config.DB.First(&ot, c.Param("id")).Error; err != nil {
+        utils.ResponseNotFound(c, "Orang tua tidak ditemukan")
+        return
+    }
+
+    var req struct {
+        SiswaIDs []uint `json:"siswa_ids" binding:"required"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        utils.ResponseBadRequest(c, "Validasi gagal", err.Error())
+        return
+    }
+
+    config.DB.Transaction(func(tx *gorm.DB) error {
+        // Delete existing
+        tx.Where("orang_tua_id = ?", ot.ID).Delete(&models.OrangTuaSiswa{})
+        
+        // Insert new
+        for _, siswaID := range req.SiswaIDs {
+            tx.Create(&models.OrangTuaSiswa{
+                OrangTuaID: ot.ID,
+                SiswaID:    siswaID,
+                Hubungan:   "wali",
+            })
+        }
+        return nil
+    })
+
+    utils.ResponseOK(c, "Siswa berhasil di-assign", nil)
+}
