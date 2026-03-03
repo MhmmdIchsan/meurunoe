@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { orangTuaService } from '../../services/orangtuaService';
+import { orangTuaService } from '../../services/orangTuaService';
 import { siswaService } from '../../services/siswaService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
@@ -122,8 +122,10 @@ export default function OrangTuaList() {
         await orangTuaService.update(selected.id, payload);
         setSuccess('Orang tua berhasil diperbarui');
       } else {
+        // Untuk create, tambahkan password default
+        payload.password = 'password123'; // Password default
         await orangTuaService.create(payload);
-        setSuccess('Orang tua berhasil ditambahkan');
+        setSuccess('Orang tua berhasil ditambahkan. Password default: password123');
       }
 
       setShowModal(false);
@@ -316,7 +318,12 @@ export default function OrangTuaList() {
           </div>
 
           <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-            <strong>ℹ️ Info:</strong> Setelah membuat orang tua, Anda bisa assign siswa (anak) di tabel → klik "X anak"
+            <strong>ℹ️ Info:</strong> 
+            {editMode ? (
+              <span> Setelah update, Anda bisa assign siswa di tabel → klik "X anak"</span>
+            ) : (
+              <span> Password default untuk login orang tua adalah: <strong>password123</strong>. Orang tua bisa mengubahnya setelah login.</span>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-border">
