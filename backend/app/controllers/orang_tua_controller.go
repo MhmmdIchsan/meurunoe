@@ -84,10 +84,18 @@ func CreateOrangTua(c *gin.Context) {
 	}
 
 	var existingUser models.User
-	if err := config.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+	result := config.DB.Where("email = ?", req.Email).First(&existingUser)
+	if result.Error == nil {
+		// Email ditemukan, sudah digunakan
 		utils.ResponseBadRequest(c, "Email sudah digunakan", nil)
 		return
 	}
+	// Jika error bukan "record not found", return error
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		utils.ResponseInternalError(c, "Gagal validasi email")
+		return
+	}
+// Email belum digunakan, lanjut create
 
 	var roleOT models.Role
 	if err := config.DB.Where("nama = ?", models.RoleOrangTua).First(&roleOT).Error; err != nil {
