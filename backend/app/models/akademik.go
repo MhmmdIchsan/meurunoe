@@ -91,8 +91,8 @@ type OrangTua struct {
     UpdatedAt time.Time `json:"updated_at"`
     
     // Relations
-    User   User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-    Siswa  []Siswa `gorm:"many2many:orang_tua_siswa;" json:"siswa,omitempty"`
+    User User                `gorm:"foreignKey:UserID" json:"user"`
+    Anak []OrangTuaSiswa     `gorm:"foreignKey:OrangTuaID" json:"anak"` // ← Tambah ini
 }
 
 type OrangTuaSiswa struct {

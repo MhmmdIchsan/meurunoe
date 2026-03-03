@@ -28,6 +28,7 @@ export default function OrangTuaList() {
 
   // Assign siswa state
   const [selectedSiswaIds, setSelectedSiswaIds] = useState([]);
+  const [hubunganMap, setHubunganMap] = useState({}); // { siswaId: 'ayah'/'ibu'/'wali' }
   const [currentAnak, setCurrentAnak] = useState([]);
 
   useEffect(() => { fetchAll(); }, []);
@@ -41,7 +42,9 @@ export default function OrangTuaList() {
       ]);
 
       const rawOrt = ortRes.data;
-      setOrangTuaList(Array.isArray(rawOrt) ? rawOrt : (rawOrt?.data || []));
+      const ortList = Array.isArray(rawOrt) ? rawOrt : (rawOrt?.data || []);
+      
+      setOrangTuaList(ortList);
 
       const rawSiswa = siswaRes.data;
       setSiswaList(Array.isArray(rawSiswa) ? rawSiswa : (rawSiswa?.data || []));
@@ -79,16 +82,25 @@ export default function OrangTuaList() {
 
   async function openAssign(orangTua) {
     setSelected(orangTua);
-    try {
-      const res = await orangTuaService.getAnak(orangTua.id);
-      const anak = Array.isArray(res.data) ? res.data : (res.data?.siswa || []);
-      setCurrentAnak(anak);
-      setSelectedSiswaIds(anak.map(a => a.id));
-    } catch (e) {
-      console.error('Error:', e);
-      setCurrentAnak([]);
-      setSelectedSiswaIds([]);
-    }
+    
+    // Gunakan data anak dari backend response
+    const anak = orangTua.anak || [];
+    setCurrentAnak(anak);
+    
+    // Pre-select siswa yang sudah di-assign
+    const siswaIds = anak.map(a => a.siswa_id || a.siswa?.id).filter(Boolean);
+    setSelectedSiswaIds(siswaIds);
+    
+    // Map hubungan existing
+    const hubunganMap = {};
+    anak.forEach(a => {
+      const sid = a.siswa_id || a.siswa?.id;
+      if (sid) {
+        hubunganMap[sid] = a.hubungan || 'wali';
+      }
+    });
+    setHubunganMap(hubunganMap);
+    
     setShowAssignModal(true);
   }
 
@@ -160,9 +172,19 @@ export default function OrangTuaList() {
     setSaving(true);
 
     try {
-      await orangTuaService.assignSiswa(selected.id, selectedSiswaIds);
+      // Format: array of { siswa_id, hubungan }
+      const assignments = selectedSiswaIds.map(siswaId => ({
+        siswa_id: siswaId,
+        hubungan: hubunganMap[siswaId] || 'wali',
+      }));
+
+      await orangTuaService.assignSiswa(selected.id, assignments);
       setSuccess(`${selectedSiswaIds.length} siswa berhasil di-assign ke ${selected.nama}`);
       setShowAssignModal(false);
+      
+      // Reload data untuk update jumlah anak
+      await fetchAll();
+      
       setTimeout(() => setSuccess(''), 3000);
     } catch (e) {
       const msg = e.response?.data?.message || e.message || 'Gagal assign siswa';
@@ -175,11 +197,23 @@ export default function OrangTuaList() {
   function toggleSiswa(siswaId) {
     setSelectedSiswaIds(prev => {
       if (prev.includes(siswaId)) {
+        // Uncheck - remove siswa
+        setHubunganMap(hm => {
+          const newMap = { ...hm };
+          delete newMap[siswaId];
+          return newMap;
+        });
         return prev.filter(id => id !== siswaId);
       } else {
+        // Check - add siswa with default hubungan 'wali'
+        setHubunganMap(hm => ({ ...hm, [siswaId]: 'wali' }));
         return [...prev, siswaId];
       }
     });
+  }
+
+  function handleHubunganChange(siswaId, hubungan) {
+    setHubunganMap(prev => ({ ...prev, [siswaId]: hubungan }));
   }
 
   const ch = (e) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -247,7 +281,7 @@ export default function OrangTuaList() {
                 <tr key={o.id}>
                   <td>{i + 1}</td>
                   <td className="font-medium">{o.nama}</td>
-                  <td className="text-sm">{o.email || '-'}</td>
+                  <td className="text-sm">{o.user?.email || o.email || '-'}</td>
                   <td className="font-mono text-sm">{o.telepon || '-'}</td>
                   <td className="text-sm">{o.pekerjaan || '-'}</td>
                   <td>
@@ -255,7 +289,7 @@ export default function OrangTuaList() {
                       onClick={() => openAssign(o)}
                       className="text-primary text-sm hover:underline"
                     >
-                      {o.siswa?.length || 0} anak
+                      {o.anak?.length || 0} anak
                     </button>
                   </td>
                   <td>
@@ -356,20 +390,34 @@ export default function OrangTuaList() {
             {siswaList.length === 0 ? (
               <div className="text-center py-12 text-text-light">Belum ada siswa</div>
             ) : siswaList.map(s => (
-              <label key={s.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-border">
-                <input
-                  type="checkbox"
-                  checked={selectedSiswaIds.includes(s.id)}
-                  onChange={() => toggleSiswa(s.id)}
-                  className="w-4 h-4"
-                />
-                <div className="flex-1">
-                  <div className="font-medium text-text">{s.nama}</div>
-                  <div className="text-sm text-text-light">
-                    {s.nisn} • Kelas {s.kelas?.nama || '-'}
+              <div key={s.id} className="p-3 hover:bg-gray-50 border-b border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedSiswaIds.includes(s.id)}
+                    onChange={() => toggleSiswa(s.id)}
+                    className="w-4 h-4"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-text">{s.nama}</div>
+                    <div className="text-sm text-text-light">
+                      {s.nisn} • Kelas {s.kelas?.nama || '-'}
+                    </div>
                   </div>
-                </div>
-              </label>
+                  {selectedSiswaIds.includes(s.id) && (
+                    <select
+                      value={hubunganMap[s.id] || 'wali'}
+                      onChange={(e) => handleHubunganChange(s.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="input-field py-1 px-2 text-sm w-24"
+                    >
+                      <option value="wali">Wali</option>
+                      <option value="ayah">Ayah</option>
+                      <option value="ibu">Ibu</option>
+                    </select>
+                  )}
+                </label>
+              </div>
             ))}
           </div>
 

@@ -50,9 +50,9 @@ export const orangTuaService = {
   },
 
   // POST /orang-tua/:id/assign-siswa - assign siswa ke orang tua
-  assignSiswa: async (orangTuaId, siswaIds) => {
+  assignSiswa: async (orangTuaId, assignments) => {
     const response = await api.post(`/orang-tua/${orangTuaId}/assign-siswa`, {
-      siswa_ids: siswaIds,
+      assignments: assignments, // [{ siswa_id, hubungan }]
     });
     return response.data;
   },

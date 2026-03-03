@@ -19,27 +19,31 @@ import (
 // @Param limit query int false "Limit"
 // @Param search query string false "Cari nama"
 // @Router /orang-tua [get]
+// GetOrangTua
 func GetOrangTua(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	search := c.Query("search")
+    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+    search := c.Query("search")
 
-	if page < 1 {
-		page = 1
-	}
+    if page < 1 {
+        page = 1
+    }
 
-	query := config.DB.Model(&models.OrangTua{}).Preload("User")
-	if search != "" {
-		query = query.Where("nama ILIKE ?", "%"+search+"%")
-	}
+    query := config.DB.Model(&models.OrangTua{}).
+        Preload("User").
+        Preload("Anak.Siswa.Kelas") // ← Include anak dengan detail siswa
 
-	var total int64
-	query.Count(&total)
+    if search != "" {
+        query = query.Where("nama ILIKE ?", "%"+search+"%")
+    }
 
-	var list []models.OrangTua
-	query.Offset((page - 1) * limit).Limit(limit).Order("nama ASC").Find(&list)
+    var total int64
+    query.Count(&total)
 
-	utils.ResponsePaginated(c, "Daftar orang tua", list, page, limit, total)
+    var list []models.OrangTua
+    query.Offset((page - 1) * limit).Limit(limit).Order("nama ASC").Find(&list)
+
+    utils.ResponsePaginated(c, "Daftar orang tua", list, page, limit, total)
 }
 
 // GetOrangTuaByID godoc
