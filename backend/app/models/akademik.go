@@ -102,6 +102,10 @@ type OrangTuaSiswa struct {
     Hubungan   string    `gorm:"type:varchar(10);default:'wali'" json:"hubungan"`
     CreatedAt  time.Time `json:"created_at"`
     UpdatedAt  time.Time `json:"updated_at"`
+    
+    // Relations - TAMBAH INI
+    OrangTua OrangTua `gorm:"foreignKey:OrangTuaID" json:"-"`
+    Siswa    Siswa    `gorm:"foreignKey:SiswaID" json:"siswa"` // ← TAMBAH BARIS INI
 }
 
 // ── Akademik Operasional ───────────────────────────────────────
