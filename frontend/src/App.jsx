@@ -29,6 +29,7 @@ import LaporanList from './pages/Laporan/LaporanList';
 
 // Orang Tua
 import OrangTuaList from './pages/OrangTua/OrangTuaList';
+import DashboardOrangTua from './pages/OrangTua/DashboardOrangTua';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -72,6 +73,7 @@ function App() {
             <Route path="orang-tua" element={<OrangTuaList />} />            
             {/* Wali Kelas Routes */}
             <Route path="wali-kelas/monitoring" element={<MonitoringKelas />} />
+            <Route path="dashboard-orang-tua" element={<DashboardOrangTua />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

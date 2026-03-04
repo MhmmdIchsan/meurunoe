@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { orangTuaService } from '../../services/orangTuaService';
+import { orangTuaService } from '../../services/orangtuaService';
 import { siswaService } from '../../services/siswaService';
+import api from '../../utils/api';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
 
@@ -178,7 +179,21 @@ export default function OrangTuaList() {
         hubungan: hubunganMap[siswaId] || 'wali',
       }));
 
-      await orangTuaService.assignSiswa(selected.id, assignments);
+      // Try new format first, fallback to old format
+      try {
+        await orangTuaService.assignSiswa(selected.id, assignments);
+      } catch (err) {
+        // Fallback: Backend masih expect siswa_ids array
+        if (err.response?.status === 400) {
+          const response = await api.post(`/orang-tua/${selected.id}/assign-siswa`, {
+            siswa_ids: selectedSiswaIds,
+          });
+          if (!response.data.success) throw err;
+        } else {
+          throw err;
+        }
+      }
+
       setSuccess(`${selectedSiswaIds.length} siswa berhasil di-assign ke ${selected.nama}`);
       setShowAssignModal(false);
       
