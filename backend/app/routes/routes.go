@@ -78,7 +78,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Semester (admin) ──────────────────────────────────────
 		sem := protected.Group("/semester")
-		sem.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
+		sem.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa))
 		{
 			sem.GET("", controllers.GetSemester)
 			sem.GET("/aktif", controllers.GetSemesterAktif)
@@ -89,7 +89,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// ── Jurusan (admin) ───────────────────────────────────────
 		jur := protected.Group("/jurusan")
-		jur.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru))
+		jur.Use(middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa))
 		{
 			jur.GET("", controllers.GetJurusan)
 			jur.GET("/:id", controllers.GetJurusanByID)
@@ -217,6 +217,10 @@ func RegisterRoutes(r *gin.Engine) {
 				middlewares.RoleMiddleware(models.RoleAdmin),
 				controllers.GetOrangTuaByID,
 			)
+			otRoute.GET("/:id/siswa",
+				middlewares.RoleMiddleware(models.RoleAdmin),
+				controllers.GetAnakByOrangTuaID,
+			)
 			otRoute.POST("",
 				middlewares.RoleMiddleware(models.RoleAdmin),
 				middlewares.ActivityLogger("CREATE", "orang_tua"),
@@ -243,23 +247,23 @@ func RegisterRoutes(r *gin.Engine) {
 		jadwal := protected.Group("/jadwal")
 		{
 			jadwal.GET("",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 				controllers.GetJadwal,
 			)
 			jadwal.GET("/saya",
-				middlewares.RoleMiddleware(models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa),
+				middlewares.RoleMiddleware(models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 				controllers.GetJadwalSaya,
 			)
 			jadwal.GET("/kelas/:kelas_id",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 				controllers.GetJadwalKelas,
 			)
 			jadwal.GET("/guru/:guru_id",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleOrangTua, models.RoleSiswa),
 				controllers.GetJadwalGuru,
 			)
 			jadwal.GET("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 				controllers.GetJadwalByID,
 			)
 			jadwal.POST("/validasi",
