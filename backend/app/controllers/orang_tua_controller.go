@@ -1,14 +1,17 @@
 package controllers
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"sim-sekolah/app/middlewares"
 	"sim-sekolah/app/models"
 	"sim-sekolah/config"
 	"sim-sekolah/utils"
-	"sim-sekolah/app/middlewares"
 )
 
 // GetOrangTua godoc
@@ -19,31 +22,31 @@ import (
 // @Param limit query int false "Limit"
 // @Param search query string false "Cari nama"
 // @Router /orang-tua [get]
-// GetOrangTua
 func GetOrangTua(c *gin.Context) {
-    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-    search := c.Query("search")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	search := c.Query("search")
 
-    if page < 1 {
-        page = 1
-    }
+	if page < 1 {
+		page = 1
+	}
 
-    query := config.DB.Model(&models.OrangTua{}).
-        Preload("User").
-        Preload("Anak.Siswa.Kelas") // ← Include anak dengan detail siswa
+	query := config.DB.Model(&models.OrangTua{}).
+		Preload("User").
+		Preload("Anak").              // ← TAMBAH INI
+		Preload("Anak.Siswa.Kelas")   // ← TAMBAH INI
 
-    if search != "" {
-        query = query.Where("nama ILIKE ?", "%"+search+"%")
-    }
+	if search != "" {
+		query = query.Where("nama ILIKE ?", "%"+search+"%")
+	}
 
-    var total int64
-    query.Count(&total)
+	var total int64
+	query.Count(&total)
 
-    var list []models.OrangTua
-    query.Offset((page - 1) * limit).Limit(limit).Order("nama ASC").Find(&list)
+	var list []models.OrangTua
+	query.Offset((page - 1) * limit).Limit(limit).Order("nama ASC").Find(&list)
 
-    utils.ResponsePaginated(c, "Daftar orang tua", list, page, limit, total)
+	utils.ResponsePaginated(c, "Daftar orang tua", list, page, limit, total)
 }
 
 // GetOrangTuaByID godoc
@@ -54,18 +57,35 @@ func GetOrangTua(c *gin.Context) {
 // @Router /orang-tua/{id} [get]
 func GetOrangTuaByID(c *gin.Context) {
 	var ot models.OrangTua
-	if err := config.DB.Preload("User").First(&ot, c.Param("id")).Error; err != nil {
+	if err := config.DB.Preload("User").Preload("Anak.Siswa.Kelas.Jurusan").First(&ot, c.Param("id")).Error; err != nil {
 		utils.ResponseNotFound(c, "Data orang tua tidak ditemukan")
 		return
 	}
 
-	// Ambil daftar anak
-	var anakList []models.OrangTuaSiswa
-	config.DB.Preload("Siswa.Kelas.Jurusan").Where("orang_tua_id = ?", ot.ID).Find(&anakList)
+	utils.ResponseOK(c, "Detail orang tua", ot)
+}
 
-	utils.ResponseOK(c, "Detail orang tua", gin.H{
-		"orang_tua": ot,
-		"anak":      anakList,
+// GetAnakByOrangTuaID - ENDPOINT BARU
+// @Summary Daftar anak dari orang tua tertentu (by ID)
+// @Tags Orang Tua
+// @Security BearerAuth
+// @Param id path int true "ID Orang Tua"
+// @Router /orang-tua/{id}/siswa [get]
+func GetAnakByOrangTuaID(c *gin.Context) {
+	var ot models.OrangTua
+	if err := config.DB.First(&ot, c.Param("id")).Error; err != nil {
+		utils.ResponseNotFound(c, "Orang tua tidak ditemukan")
+		return
+	}
+
+	var anakList []models.OrangTuaSiswa
+	config.DB.
+		Preload("Siswa.Kelas.Jurusan").
+		Where("orang_tua_id = ?", ot.ID).
+		Find(&anakList)
+
+	utils.ResponseOK(c, "Daftar anak", gin.H{
+		"anak": anakList,
 	})
 }
 
@@ -76,30 +96,24 @@ func GetOrangTuaByID(c *gin.Context) {
 // @Router /orang-tua [post]
 func CreateOrangTua(c *gin.Context) {
 	var req struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required,min=8"`
-		Nama     string `json:"nama" binding:"required,min=3,max=100"`
-		Telepon  string `json:"telepon"`
-		Alamat   string `json:"alamat"`
+		Email     string `json:"email" binding:"required,email"`
+		Password  string `json:"password" binding:"required,min=8"`
+		Nama      string `json:"nama" binding:"required,min=3,max=100"`
+		Telepon   string `json:"telepon"`
+		Pekerjaan string `json:"pekerjaan"` // ← TAMBAH INI
+		Alamat    string `json:"alamat"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ResponseBadRequest(c, "Validasi gagal", err.Error())
 		return
 	}
 
-	var existingUser models.User
-	result := config.DB.Where("email = ?", req.Email).First(&existingUser)
-	if result.Error == nil {
-		// Email ditemukan, sudah digunakan
+	var count int64
+	config.DB.Model(&models.User{}).Where("email = ?", req.Email).Count(&count)
+	if count > 0 {
 		utils.ResponseBadRequest(c, "Email sudah digunakan", nil)
 		return
 	}
-	// Jika error bukan "record not found", return error
-	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-		utils.ResponseInternalError(c, "Gagal validasi email")
-		return
-	}
-// Email belum digunakan, lanjut create
 
 	var roleOT models.Role
 	if err := config.DB.Where("nama = ?", models.RoleOrangTua).First(&roleOT).Error; err != nil {
@@ -120,10 +134,11 @@ func CreateOrangTua(c *gin.Context) {
 			return err
 		}
 		ot = models.OrangTua{
-			UserID:  user.ID,
-			Nama:    req.Nama,
-			Telepon: req.Telepon,
-			Alamat:  req.Alamat,
+			UserID:    user.ID,
+			Nama:      req.Nama,
+			Telepon:   req.Telepon,
+			Pekerjaan: req.Pekerjaan, // ← TAMBAH INI
+			Alamat:    req.Alamat,
 		}
 		return tx.Create(&ot).Error
 	})
@@ -151,11 +166,12 @@ func UpdateOrangTua(c *gin.Context) {
 	}
 
 	var req struct {
-		Nama     string `json:"nama" binding:"omitempty,min=3,max=100"`
-		Telepon  string `json:"telepon"`
-		Alamat   string `json:"alamat"`
-		Email    string `json:"email" binding:"omitempty,email"`
-		IsActive *bool  `json:"is_active"`
+		Nama      string `json:"nama" binding:"omitempty,min=3,max=100"`
+		Telepon   string `json:"telepon"`
+		Pekerjaan string `json:"pekerjaan"` // ← TAMBAH INI
+		Alamat    string `json:"alamat"`
+		Email     string `json:"email" binding:"omitempty,email"`
+		IsActive  *bool  `json:"is_active"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ResponseBadRequest(c, "Validasi gagal", err.Error())
@@ -169,6 +185,9 @@ func UpdateOrangTua(c *gin.Context) {
 		}
 		if req.Telepon != "" {
 			otUpdates["telepon"] = req.Telepon
+		}
+		if req.Pekerjaan != "" {
+			otUpdates["pekerjaan"] = req.Pekerjaan // ← TAMBAH INI
 		}
 		if req.Alamat != "" {
 			otUpdates["alamat"] = req.Alamat
@@ -211,7 +230,6 @@ func DeleteOrangTua(c *gin.Context) {
 	}
 
 	config.DB.Transaction(func(tx *gorm.DB) error {
-		// Hapus relasi orang tua – siswa terlebih dahulu
 		tx.Where("orang_tua_id = ?", ot.ID).Delete(&models.OrangTuaSiswa{})
 		tx.Delete(&ot)
 		tx.Model(&models.User{}).Where("id = ?", ot.UserID).Update("is_active", false)
@@ -225,11 +243,10 @@ func DeleteOrangTua(c *gin.Context) {
 // @Summary Daftar anak dari orang tua yang sedang login
 // @Tags Orang Tua
 // @Security BearerAuth
-// @Router /orang-tua/anak-saya [get]
+// @Router /orang-tua/saya/anak [get]
 func GetAnakByOrangTua(c *gin.Context) {
 	claims := middlewares.GetCurrentUser(c)
 
-	// Cari orang tua berdasarkan user_id dari token
 	var ot models.OrangTua
 	if err := config.DB.Where("user_id = ?", claims.UserID).First(&ot).Error; err != nil {
 		utils.ResponseNotFound(c, "Data orang tua tidak ditemukan")
@@ -243,47 +260,90 @@ func GetAnakByOrangTua(c *gin.Context) {
 		Where("orang_tua_id = ?", ot.ID).
 		Find(&anakList)
 
+	// Format response untuk frontend
+	var siswaList []map[string]interface{}
+	for _, anak := range anakList {
+		siswaList = append(siswaList, map[string]interface{}{
+			"id":    anak.Siswa.ID,
+			"nama":  anak.Siswa.Nama,
+			"nisn":  anak.Siswa.NISN,
+			"kelas": anak.Siswa.Kelas,
+		})
+	}
+
 	utils.ResponseOK(c, "Daftar anak", gin.H{
-		"orang_tua": ot,
-		"anak":      anakList,
-		"total":     len(anakList),
+		"siswa": siswaList,
 	})
 }
 
 // AssignSiswa godoc
-// @Summary Assign/unassign siswa ke orang tua
+// @Summary Assign siswa ke orang tua dengan hubungan
 // @Tags Orang Tua
 // @Security BearerAuth
 // @Router /orang-tua/{id}/assign-siswa [post]
 func AssignSiswa(c *gin.Context) {
-    var ot models.OrangTua
-    if err := config.DB.First(&ot, c.Param("id")).Error; err != nil {
-        utils.ResponseNotFound(c, "Orang tua tidak ditemukan")
-        return
-    }
+	var ot models.OrangTua
+	if err := config.DB.First(&ot, c.Param("id")).Error; err != nil {
+		utils.ResponseNotFound(c, "Orang tua tidak ditemukan")
+		return
+	}
 
-    var req struct {
-        SiswaIDs []uint `json:"siswa_ids" binding:"required"`
-    }
-    if err := c.ShouldBindJSON(&req); err != nil {
-        utils.ResponseBadRequest(c, "Validasi gagal", err.Error())
-        return
-    }
+	// Read body
+	bodyBytes, _ := io.ReadAll(c.Request.Body)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-    config.DB.Transaction(func(tx *gorm.DB) error {
-        // Delete existing
-        tx.Where("orang_tua_id = ?", ot.ID).Delete(&models.OrangTuaSiswa{})
-        
-        // Insert new
-        for _, siswaID := range req.SiswaIDs {
-            tx.Create(&models.OrangTuaSiswa{
-                OrangTuaID: ot.ID,
-                SiswaID:    siswaID,
-                Hubungan:   "wali",
-            })
-        }
-        return nil
-    })
+	// Try new format first
+	var reqNew struct {
+		Assignments []struct {
+			SiswaID  uint   `json:"siswa_id"`
+			Hubungan string `json:"hubungan"`
+		} `json:"assignments"`
+	}
 
-    utils.ResponseOK(c, "Siswa berhasil di-assign", nil)
+	// Try old format
+	var reqOld struct {
+		SiswaIDs []uint `json:"siswa_ids"`
+	}
+
+	var siswaAssignments []models.OrangTuaSiswa
+
+	// Parse new format
+	if err := json.Unmarshal(bodyBytes, &reqNew); err == nil && len(reqNew.Assignments) > 0 {
+		for _, assign := range reqNew.Assignments {
+			hubungan := assign.Hubungan
+			if hubungan == "" {
+				hubungan = "wali"
+			}
+			siswaAssignments = append(siswaAssignments, models.OrangTuaSiswa{
+				OrangTuaID: ot.ID,
+				SiswaID:    assign.SiswaID,
+				Hubungan:   hubungan,
+			})
+		}
+	} else {
+		// Fallback to old format
+		if err := json.Unmarshal(bodyBytes, &reqOld); err != nil || len(reqOld.SiswaIDs) == 0 {
+			utils.ResponseBadRequest(c, "Validasi gagal", "siswa_ids atau assignments required")
+			return
+		}
+		for _, siswaID := range reqOld.SiswaIDs {
+			siswaAssignments = append(siswaAssignments, models.OrangTuaSiswa{
+				OrangTuaID: ot.ID,
+				SiswaID:    siswaID,
+				Hubungan:   "wali",
+			})
+		}
+	}
+
+	config.DB.Transaction(func(tx *gorm.DB) error {
+		tx.Where("orang_tua_id = ?", ot.ID).Delete(&models.OrangTuaSiswa{})
+		for _, assign := range siswaAssignments {
+			tx.Create(&assign)
+		}
+		return nil
+	})
+
+	utils.ResponseOK(c, "Siswa berhasil di-assign", gin.H{
+		"total": len(siswaAssignments),
+	})
 }
