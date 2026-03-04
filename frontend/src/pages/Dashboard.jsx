@@ -1,22 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useAuth, extractRole } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { kelasService } from '../services/kelasService';
 import LoadingSpinner from '../components/Common/LoadingSpinner';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const role = extractRole(user);
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Redirect orang tua ke dashboard khusus mereka
+    if (role === 'orang tua' || role === 'orang_tua') {
+      navigate('/dashboard-orang-tua', { replace: true });
+      return;
+    }
+
     if (role === 'wali kelas') {
       fetchWaliKelasStats();
     } else {
       setLoading(false);
     }
-  }, [role]);
+  }, [role, navigate]);
 
   async function fetchWaliKelasStats() {
     try {
