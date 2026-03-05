@@ -14,19 +14,24 @@ const ALL_MENU = [
     roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Data Guru',      path: '/guru',          icon: '👨‍🏫',
     roles: ['admin','kepala_sekolah'] },
+  { title: 'Data orang_tua', path: '/orang-tua-list', icon: '👨‍👩‍👧',  
+    roles: ['admin'] },
   { title: 'Data Kelas',     path: '/kelas',         icon: '🏫',
-    roles: ['admin', 'kepala_sekolah', 'guru', 'wali_kelas']},
-  { title: 'Data Orang Tua', path: '/orang-tua',     icon: '👪', roles: ['admin','kepala_sekolah', 'wali_kelas'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Mata Pelajaran', path: '/mapel',         icon: '📚',  roles: ['admin'] },
   { title: 'Tahun Ajaran',   path: '/tahun-ajaran',  icon: '🗓️',  roles: ['admin'] },
   { title: 'Jadwal Pelajaran', path: '/jadwal',      icon: '📅',
-    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa'] }, // ← HAPUS orang_tua
   { title: 'Absensi',        path: '/absensi',       icon: '✅',
-    roles: ['admin','guru','wali_kelas','siswa','orang_tua'] },
+    roles: ['admin','guru','wali_kelas'] }, // ← HAPUS siswa & orang_tua
   { title: 'Penilaian',      path: '/nilai',         icon: '📝',
-    roles: ['admin','guru','wali_kelas','siswa','orang_tua'] },
+    roles: ['admin','guru','wali_kelas'] }, // ← HAPUS siswa & orang_tua
+  { title: 'Nilai Anak',     path: '/nilai-anak',    icon: '📊',
+    roles: ['orang_tua'] }, // ← TAMBAH untuk orang_tua
   { title: 'Rapor',          path: '/rapor',         icon: '📄',
-    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa','orang_tua'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] }, // ← HAPUS siswa & orang_tua
+  { title: 'Rapor Anak',     path: '/rapor-anak',    icon: '📋',
+    roles: ['orang_tua'] }, // ← TAMBAH untuk orang_tua
   { title: 'Laporan',        path: '/laporan',       icon: '📈',
     roles: ['admin','kepala_sekolah'] },
 ];
@@ -36,7 +41,7 @@ export default function Sidebar() {
   const { user } = useAuth();
   const role = extractRole(user);
 
-  console.log('[Sidebar] role =', role, '| user.role raw =', user?.role);
+  // console.log('[Sidebar] role =', role, '| user.role raw =', user?.role); // ← REMOVE
 
   const menu = ALL_MENU.filter(item =>
     item.roles.some(r => role === r || role.includes(r) || r.includes(role))
