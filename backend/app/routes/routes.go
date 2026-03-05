@@ -133,19 +133,19 @@ func RegisterRoutes(r *gin.Engine) {
 		kelas := protected.Group("/kelas")
 		{
 			kelas.GET("",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa),
 				controllers.GetKelas,
 			)
 			kelas.GET("/summary",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa),
 				controllers.GetKelasWithJumlahSiswa,
 			)
 			kelas.GET("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa),
 				controllers.GetKelasByID,
 			)
 			kelas.GET("/:id/siswa",
-				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleWaliKelas, models.RoleGuru),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleWaliKelas, models.RoleGuru, models.RoleOrangTua, models.RoleSiswa),
 				controllers.GetSiswaByKelas,
 			)
 			kelas.POST("",
@@ -341,7 +341,7 @@ func RegisterRoutes(r *gin.Engine) {
 		nilai := protected.Group("/nilai")
 		{
 			nilai.GET("",
-			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas),
+			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleKepalaSekolah, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 			controllers.GetNilai,
 			)
 			nilai.GET("/siswa/:siswa_id",
@@ -349,11 +349,11 @@ func RegisterRoutes(r *gin.Engine) {
 			controllers.GetNilaiSiswa,
 			)
 			nilai.GET("/saya",
-			middlewares.RoleMiddleware(models.RoleSiswa),
+			middlewares.RoleMiddleware(models.RoleSiswa, models.RoleOrangTua),
 			controllers.GetNilaiSaya,
 			)
 			nilai.GET("/:id",
-			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
+			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas, models.RoleSiswa, models.RoleOrangTua),
 			controllers.GetNilaiByID,
 			)
 			nilai.POST("",

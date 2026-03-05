@@ -12,9 +12,6 @@ import KelasList    from './pages/Kelas/KelasList';
 import JadwalList   from './pages/Jadwal/JadwalList';
 import AbsensiInput from './pages/Absensi/AbsensiInput';
 import RaporList    from './pages/Rapor/RaporList';
-import JurusanList from './pages/Jurusan/JurusanList';
-import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
-import MatapelajaranList from './pages/MataPelajaran/MatapelajaranList';
 
 // Nilai
 import NilaiInput from './pages/Nilai/NilaiInput';
@@ -28,8 +25,10 @@ import DashboardAnalytics from './pages/Analytics/DashboardAnalytics';
 import LaporanList from './pages/Laporan/LaporanList';
 
 // Orang Tua
-import OrangTuaList from './pages/OrangTua/OrangTuaList';
 import DashboardOrangTua from './pages/OrangTua/DashboardOrangTua';
+import OrangTuaList from './pages/OrangTua/OrangTuaList';
+import NilaiAnak from './pages/OrangTua/NilaiAnak';
+import RaporAnak from './pages/OrangTua/RaporAnak';
 
 const ComingSoon = ({ title }) => (
   <div className="card p-12 text-center">
@@ -60,9 +59,8 @@ function App() {
             <Route path="siswa"        element={<SiswaList />} />
             <Route path="guru"         element={<GuruList />} />
             <Route path="kelas"        element={<KelasList />} />
-            <Route path="mapel"        element={<MatapelajaranList />} />
-            <Route path="jurusan"      element={<JurusanList />} />
-            <Route path="tahun-ajaran" element={<TahunAjaranList />} />
+            <Route path="mapel"        element={<ComingSoon title="Mata Pelajaran" />} />
+            <Route path="tahun-ajaran" element={<ComingSoon title="Tahun Ajaran" />} />
             <Route path="jadwal"       element={<JadwalList />} />
             <Route path="absensi"      element={<AbsensiInput />} />
             <Route path="nilai"        element={<NilaiInput />} />
@@ -70,10 +68,13 @@ function App() {
             <Route path="rapor"        element={<RaporList />} />
             <Route path="analytics"    element={<DashboardAnalytics />} />
             <Route path="laporan"      element={<LaporanList />} />
-            <Route path="orang-tua" element={<OrangTuaList />} />            
+            <Route path="orang-tua"    element={<DashboardOrangTua />} />
+            <Route path="orang-tua-list" element={<OrangTuaList />} />
+            <Route path="nilai-anak"   element={<NilaiAnak />} />
+            <Route path="rapor-anak"   element={<RaporAnak />} />
+            
             {/* Wali Kelas Routes */}
             <Route path="wali-kelas/monitoring" element={<MonitoringKelas />} />
-            <Route path="dashboard-orang-tua" element={<DashboardOrangTua />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
