@@ -256,19 +256,19 @@ export default function DashboardOrangTua() {
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Link to="/nilai-saya" className="card p-6 hover:shadow-lg transition-shadow">
+            <Link to="/nilai-anak" className="card p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-3">📝</div>
               <h3 className="font-semibold text-text mb-2">Lihat Nilai</h3>
               <p className="text-sm text-text-light">Nilai lengkap semua mata pelajaran</p>
             </Link>
 
-            <Link to="/rapor" className="card p-6 hover:shadow-lg transition-shadow">
+            <Link to="/rapor-anak" className="card p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-3">📄</div>
               <h3 className="font-semibold text-text mb-2">Download Rapor</h3>
               <p className="text-sm text-text-light">Rapor semester dalam format PDF</p>
             </Link>
 
-            <Link to="/jadwal" className="card p-6 hover:shadow-lg transition-shadow">
+            <Link to="/jadwal-anak" className="card p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-3">📅</div>
               <h3 className="font-semibold text-text mb-2">Jadwal Pelajaran</h3>
               <p className="text-sm text-text-light">Jadwal mingguan anak Anda</p>
