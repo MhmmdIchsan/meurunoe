@@ -16,8 +16,22 @@ export default function DashboardOrangTua() {
   const [semesterAktif, setSemesterAktif] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState('');
+  const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => { init(); }, []);
+  // First effect: Fetch anak list
+  useEffect(() => { 
+    if (!initialized) {
+      init(); 
+    }
+  }, [initialized]);
+
+  // Second effect: Select first anak when list is ready
+  useEffect(() => {
+    if (anakList.length > 0 && semesterAktif && !selectedAnak) {
+      console.log('🎯 Auto-selecting first anak from list');
+      selectAnak(anakList[0].id, semesterAktif.id);
+    }
+  }, [anakList, semesterAktif, selectedAnak]);
 
   async function init() {
     setLoading(true);
@@ -27,57 +41,95 @@ export default function DashboardOrangTua() {
       const aktif = semRes.data;
       setSemesterAktif(aktif);
 
+      console.log('🔍 Fetching anak data...');
+      
       // Fetch anak-anak dari orang tua yang login
       try {
         const anakRes = await orangTuaService.getAnakSaya();
-        const rawAnak = anakRes.data;
-        const anak = Array.isArray(rawAnak) ? rawAnak : (rawAnak?.siswa || []);
+        console.log('📦 Response getAnakSaya:', anakRes);
         
+        // Multiple format handling
+        let anak = [];
+        if (anakRes.data) {
+          if (Array.isArray(anakRes.data)) {
+            anak = anakRes.data;
+          } else if (anakRes.data.siswa && Array.isArray(anakRes.data.siswa)) {
+            anak = anakRes.data.siswa;
+          } else if (anakRes.data.anak && Array.isArray(anakRes.data.anak)) {
+            // Extract siswa from anak relation
+            anak = anakRes.data.anak.map(a => a.siswa || a).filter(Boolean);
+          } else if (anakRes.data.data) {
+            anak = Array.isArray(anakRes.data.data) ? anakRes.data.data : [];
+          }
+        }
+        
+        console.log('👶 Parsed anak list:', anak);
         setAnakList(anak);
 
-        if (anak.length > 0 && aktif) {
-          await selectAnak(anak[0].id, aktif.id);
+        if (anak.length > 0) {
+          console.log('✅ Anak list set, auto-select will happen in useEffect');
+          setInitialized(true);
         } else if (anak.length === 0) {
+          console.warn('⚠️ No anak found');
           setErrMsg('Belum ada anak yang terdaftar. Hubungi admin untuk menghubungkan akun Anda dengan siswa.');
+          setInitialized(true);
         }
       } catch (backendError) {
-        // Fallback: Backend endpoint belum ready
-        console.warn('Backend endpoint /orang-tua/saya/anak belum tersedia, menggunakan fallback');
+        console.error('❌ Backend error:', backendError);
+        console.error('Response:', backendError.response?.data);
         
-        // Temporary: Show demo data dengan instruksi
         setErrMsg(
-          'Fitur Orang Tua memerlukan implementasi backend.\n\n' +
-          '📋 Backend Requirements:\n' +
-          '1. Buat table: orang_tua, orang_tua_siswa\n' +
-          '2. Implement endpoint: GET /orang-tua/saya/anak\n' +
-          '3. Assign orang tua ke siswa via Admin\n\n' +
-          'Lihat dokumentasi di ORANGTUA_MANAGEMENT_GUIDE.md untuk detail lengkap.'
+          'Gagal memuat data anak.\n\n' +
+          'Error: ' + (backendError.response?.data?.message || backendError.message) + '\n\n' +
+          'Pastikan:\n' +
+          '1. Anda sudah di-assign sebagai orang tua siswa\n' +
+          '2. Backend endpoint /orang-tua/saya/anak sudah berfungsi\n' +
+          '3. Hubungi admin jika masalah berlanjut'
         );
+        setInitialized(true);
       }
     } catch (e) {
-      console.error('Error:', e);
+      console.error('💥 Init error:', e);
       setErrMsg('Gagal memuat data. ' + (e.response?.data?.message || e.message));
+      setInitialized(true);
     } finally {
       setLoading(false);
     }
   }
 
   async function selectAnak(siswaId, semesterId) {
-    const anak = anakList.find(a => a.id === siswaId) || anakList[0];
+    console.log('🎯 selectAnak called with:', { siswaId, semesterId });
+    
+    const anak = anakList.find(a => a.id === siswaId);
+    console.log('👤 Found anak:', anak);
+    
+    if (!anak) {
+      console.error('❌ Anak not found in list!');
+      return;
+    }
+    
     setSelectedAnak(anak);
+    console.log('✅ setSelectedAnak called');
 
-    if (!semesterId) return;
+    if (!semesterId) {
+      console.warn('⚠️ No semesterId, skipping fetch nilai & absensi');
+      return;
+    }
 
     try {
-      // Fetch nilai
+      console.log('📊 Fetching nilai...');
       const nilaiRes = await nilaiService.getNilaiSiswa(siswaId, { semester_id: semesterId });
+      console.log('📊 Nilai response:', nilaiRes.data);
       setNilaiData(nilaiRes.data);
 
-      // Fetch absensi
+      console.log('📅 Fetching absensi...');
       const absensiRes = await absensiService.getRekapSiswa(siswaId, { semester_id: semesterId });
+      console.log('📅 Absensi response:', absensiRes.data);
       setAbsensiData(absensiRes.data);
+      
+      console.log('✅ All data loaded successfully');
     } catch (e) {
-      console.error('Error:', e);
+      console.error('❌ Error fetching nilai/absensi:', e);
     }
   }
 
@@ -91,6 +143,14 @@ export default function DashboardOrangTua() {
   if (loading) return (
     <div className="flex items-center justify-center h-64"><LoadingSpinner size="lg" /></div>
   );
+
+  console.log('🎨 Render - State:', { 
+    anakList: anakList.length, 
+    selectedAnak: selectedAnak?.nama,
+    nilaiData: !!nilaiData,
+    absensiData: !!absensiData,
+    errMsg: !!errMsg 
+  });
 
   return (
     <div>
