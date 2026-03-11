@@ -18,7 +18,7 @@ import NilaiInput from './pages/Nilai/NilaiInput';
 import NilaiSiswa from './pages/Nilai/NilaiSiswa';
 
 // Wali Kelas
-import MonitoringKelas from './pages/Kelas/MonitoringKelas';
+import MonitoringKelas from './pages/WaliKelas/MonitoringKelas';
 
 // Analytics & Reports
 import DashboardAnalytics from './pages/Analytics/DashboardAnalytics';
@@ -28,6 +28,7 @@ import LaporanList from './pages/Laporan/LaporanList';
 import DashboardOrangTua from './pages/OrangTua/DashboardOrangTua';
 import OrangTuaList from './pages/OrangTua/OrangTuaList';
 import NilaiAnak from './pages/OrangTua/NilaiAnak';
+import JadwalAnak from './pages/OrangTua/JadwalAnak';
 import RaporAnak from './pages/OrangTua/RaporAnak';
 
 const ComingSoon = ({ title }) => (
@@ -71,6 +72,7 @@ function App() {
             <Route path="orang-tua"    element={<DashboardOrangTua />} />
             <Route path="orang-tua-list" element={<OrangTuaList />} />
             <Route path="nilai-anak"   element={<NilaiAnak />} />
+            <Route path="jadwal-anak"  element={<JadwalAnak />} />
             <Route path="rapor-anak"   element={<RaporAnak />} />
             
             {/* Wali Kelas Routes */}
