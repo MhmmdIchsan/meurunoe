@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { orangTuaService } from '../../services/orangtuaService';
+import { orangTuaService } from '../../services/orangTuaService';
 import { siswaService } from '../../services/siswaService';
 import api from '../../utils/api';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
