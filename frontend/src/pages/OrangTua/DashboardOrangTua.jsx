@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { orangTuaService } from '../../services/orangtuaService';
+import { orangTuaService } from '../../services/orangTuaService';
 import { nilaiService } from '../../services/nilaiService';
 import { absensiService } from '../../services/absensiService';
 import { semesterService } from '../../services/semesterService';
@@ -256,13 +256,13 @@ export default function DashboardOrangTua() {
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Link to="/nilai-anak" className="card p-6 hover:shadow-lg transition-shadow">
+            <Link to="/nilai-saya" className="card p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-3">📝</div>
               <h3 className="font-semibold text-text mb-2">Lihat Nilai</h3>
               <p className="text-sm text-text-light">Nilai lengkap semua mata pelajaran</p>
             </Link>
 
-            <Link to="/rapor-anak" className="card p-6 hover:shadow-lg transition-shadow">
+            <Link to="/rapor" className="card p-6 hover:shadow-lg transition-shadow">
               <div className="text-4xl mb-3">📄</div>
               <h3 className="font-semibold text-text mb-2">Download Rapor</h3>
               <p className="text-sm text-text-light">Rapor semester dalam format PDF</p>

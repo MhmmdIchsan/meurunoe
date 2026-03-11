@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { orangTuaService } from '../../services/orangtuaService';
+import { orangTuaService } from '../../services/orangTuaService';
 import { nilaiService } from '../../services/nilaiService';
 import { absensiService } from '../../services/absensiService';
 import { semesterService } from '../../services/semesterService';
@@ -44,11 +44,31 @@ export default function RaporAnak() {
         absensiService.getRekapSiswa(siswa.id, { semester_id: semester.id }),
       ]);
 
+      console.log('📊 Nilai data:', nilaiRes.data);
+      console.log('📅 Absensi data:', absensiRes.data);
+
+      // Format data untuk PDF
+      const nilaiData = nilaiRes.data || {};
+      const absensiData = absensiRes.data || {};
+
+      // Ensure siswa has complete data
+      const siswaComplete = {
+        ...siswa,
+        kelas: siswa.kelas || { nama: '-' },
+      };
+
       exportRaporToPDF({
-        siswa,
-        semester,
-        nilaiData: nilaiRes.data,
-        absensiData: absensiRes.data,
+        siswa: siswaComplete,
+        semester: semester,
+        nilai: nilaiData.nilai || [], // ← Match parameter name
+        rataRata: nilaiData.rata_rata || 0,
+        predikat: nilaiData.predikat_umum || '-', // ← Match parameter name
+        absensi: { // ← Match parameter name
+          hadir: absensiData.hadir || 0,
+          izin: absensiData.izin || 0,
+          sakit: absensiData.sakit || 0,
+          alfa: absensiData.alfa || 0,
+        },
       });
 
       alert(`Rapor ${siswa.nama} berhasil di-generate!`);
