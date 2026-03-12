@@ -13,6 +13,15 @@ import JadwalList   from './pages/Jadwal/JadwalList';
 import AbsensiInput from './pages/Absensi/AbsensiInput';
 import RaporList    from './pages/Rapor/RaporList';
 
+// Profile
+import ProfilePage from './pages/Profile/ProfilePage';
+
+// Mata Pelajaran
+import MataPelajaranList from './pages/MataPelajaran/MataPelajaranList';
+
+// Tahun Ajaran
+import TahunAjaranList from './pages/TahunAjaran/TahunAjaranList';
+
 // Nilai
 import NilaiInput from './pages/Nilai/NilaiInput';
 import NilaiSiswa from './pages/Nilai/NilaiSiswa';
@@ -55,13 +64,14 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="profile"      element={<ProfilePage />} />
             <Route path="dashboard"    element={<Dashboard />} />
             <Route path="users"        element={<UserList />} />
             <Route path="siswa"        element={<SiswaList />} />
             <Route path="guru"         element={<GuruList />} />
             <Route path="kelas"        element={<KelasList />} />
-            <Route path="mapel"        element={<ComingSoon title="Mata Pelajaran" />} />
-            <Route path="tahun-ajaran" element={<ComingSoon title="Tahun Ajaran" />} />
+            <Route path="mapel"        element={<MataPelajaranList />} />
+            <Route path="tahun-ajaran" element={<TahunAjaranList />} />
             <Route path="jadwal"       element={<JadwalList />} />
             <Route path="absensi"      element={<AbsensiInput />} />
             <Route path="nilai"        element={<NilaiInput />} />
