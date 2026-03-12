@@ -1,13 +1,30 @@
 /**
- * Notification Utility
- * Mengelola notifikasi yang disimpan di localStorage
+ * Notification Utility - Per User
+ * Notifikasi dipisah per user menggunakan key: notifications_{userId}
  */
+
+/**
+ * Ambil storage key berdasarkan user ID
+ */
+function getStorageKey() {
+  try {
+    const stored = localStorage.getItem('user');
+    if (!stored) return 'notifications_guest';
+    const user = JSON.parse(stored);
+    const userId = user?.id || user?.user_id || 'guest';
+    return `notifications_${userId}`;
+  } catch {
+    return 'notifications_guest';
+  }
+}
 
 /**
  * Tambah notifikasi baru
  * @param {Object} notification - { title, message, icon, link? }
  */
 export function addNotification(notification) {
+  const key = getStorageKey();
+
   const notif = {
     id: Date.now(),
     timestamp: new Date().toISOString(),
@@ -18,28 +35,69 @@ export function addNotification(notification) {
     link: notification.link || null,
   };
 
-  // Load existing notifications
-  const stored = localStorage.getItem('notifications');
+  const stored = localStorage.getItem(key);
   const notifications = stored ? JSON.parse(stored) : [];
 
-  // Add new notification at the beginning
   notifications.unshift(notif);
-
-  // Keep only last 50 notifications
   const limited = notifications.slice(0, 50);
 
-  // Save to localStorage
-  localStorage.setItem('notifications', JSON.stringify(limited));
-
-  // Dispatch custom event untuk update NotificationBell
+  localStorage.setItem(key, JSON.stringify(limited));
   window.dispatchEvent(new CustomEvent('notificationAdded'));
 
   return notif;
 }
 
 /**
- * Notifikasi untuk absensi berhasil
+ * Ambil semua notifikasi user ini
  */
+export function getNotifications() {
+  const key = getStorageKey();
+  const stored = localStorage.getItem(key);
+  return stored ? JSON.parse(stored) : [];
+}
+
+/**
+ * Tandai satu notifikasi sebagai sudah dibaca
+ */
+export function markAsRead(id) {
+  const key = getStorageKey();
+  const notifications = getNotifications();
+  const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+  localStorage.setItem(key, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('notificationAdded'));
+  return updated;
+}
+
+/**
+ * Tandai semua notifikasi sebagai sudah dibaca
+ */
+export function markAllAsRead() {
+  const key = getStorageKey();
+  const notifications = getNotifications();
+  const updated = notifications.map(n => ({ ...n, read: true }));
+  localStorage.setItem(key, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('notificationAdded'));
+  return updated;
+}
+
+/**
+ * Hapus semua notifikasi user ini
+ */
+export function clearAllNotifications() {
+  const key = getStorageKey();
+  localStorage.removeItem(key);
+  window.dispatchEvent(new CustomEvent('notificationAdded'));
+}
+
+/**
+ * Get unread count
+ */
+export function getUnreadCount() {
+  return getNotifications().filter(n => !n.read).length;
+}
+
+// ─── Shortcut helpers ────────────────────────────────────────────────────────
+
 export function notifyAbsensiSaved(kelasNama, jumlahSiswa) {
   return addNotification({
     icon: '✅',
@@ -49,21 +107,15 @@ export function notifyAbsensiSaved(kelasNama, jumlahSiswa) {
   });
 }
 
-/**
- * Notifikasi untuk jadwal bentrok
- */
 export function notifyJadwalBentrok(message) {
   return addNotification({
     icon: '⚠️',
     title: 'Jadwal Bentrok',
-    message: message,
+    message,
     link: '/jadwal',
   });
 }
 
-/**
- * Notifikasi untuk guru belum input absensi
- */
 export function notifyAbsensiPending(mapelNama, kelasNama) {
   return addNotification({
     icon: '⏰',
@@ -73,9 +125,6 @@ export function notifyAbsensiPending(mapelNama, kelasNama) {
   });
 }
 
-/**
- * Notifikasi untuk nilai sudah di-input
- */
 export function notifyNilaiUpdated(mapelNama, kelasNama) {
   return addNotification({
     icon: '📝',
@@ -85,9 +134,6 @@ export function notifyNilaiUpdated(mapelNama, kelasNama) {
   });
 }
 
-/**
- * Notifikasi untuk siswa dengan kehadiran rendah
- */
 export function notifyKehadiranRendah(namaSiswa, persentase) {
   return addNotification({
     icon: '🚨',
@@ -97,9 +143,6 @@ export function notifyKehadiranRendah(namaSiswa, persentase) {
   });
 }
 
-/**
- * Notifikasi untuk rapor tersedia
- */
 export function notifyRaporReady(namaSiswa, semester) {
   return addNotification({
     icon: '📄',
@@ -109,32 +152,6 @@ export function notifyRaporReady(namaSiswa, semester) {
   });
 }
 
-/**
- * Notifikasi umum
- */
 export function notifyGeneral(title, message, link = null) {
-  return addNotification({
-    icon: '📢',
-    title: title,
-    message: message,
-    link: link,
-  });
-}
-
-/**
- * Clear all notifications
- */
-export function clearAllNotifications() {
-  localStorage.removeItem('notifications');
-  window.dispatchEvent(new CustomEvent('notificationAdded'));
-}
-
-/**
- * Get unread count
- */
-export function getUnreadCount() {
-  const stored = localStorage.getItem('notifications');
-  if (!stored) return 0;
-  const notifications = JSON.parse(stored);
-  return notifications.filter(n => !n.read).length;
+  return addNotification({ icon: '📢', title, message, link });
 }
