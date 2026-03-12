@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { orangTuaService } from '../../services/orangTuaService';
 import { jadwalService } from '../../services/jadwalService';
+import { semesterService } from '../../services/semesterService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 
 const HARI = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -8,6 +9,7 @@ const HARI = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 export default function JadwalAnak() {
   const [anakList, setAnakList] = useState([]);
   const [selectedAnak, setSelectedAnak] = useState(null);
+  const [semesterAktif, setSemesterAktif] = useState(null);
   const [jadwalData, setJadwalData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +18,14 @@ export default function JadwalAnak() {
   async function init() {
     setLoading(true);
     try {
-      const anakRes = await orangTuaService.getAnakSaya();
+      // Fetch semester aktif dan anak
+      const [anakRes, semRes] = await Promise.all([
+        orangTuaService.getAnakSaya(),
+        semesterService.getAktif().catch(() => ({ data: null })),
+      ]);
+
+      const aktif = semRes.data;
+      setSemesterAktif(aktif);
       
       let anak = [];
       if (anakRes.data?.siswa) anak = anakRes.data.siswa;
@@ -24,9 +33,9 @@ export default function JadwalAnak() {
       
       setAnakList(anak);
 
-      if (anak.length > 0 && anak[0].kelas?.id) {
+      if (anak.length > 0 && anak[0].kelas?.id && aktif) {
         setSelectedAnak(anak[0]);
-        await fetchJadwal(anak[0].kelas.id);
+        await fetchJadwal(anak[0].kelas.id, aktif.id);
       }
     } catch (e) {
       console.error('Error:', e);
@@ -35,9 +44,9 @@ export default function JadwalAnak() {
     }
   }
 
-  async function fetchJadwal(kelasId) {
+  async function fetchJadwal(kelasId, semesterId) {
     try {
-      const res = await jadwalService.getByKelas(kelasId);
+      const res = await jadwalService.getJadwalKelas(kelasId, { semester_id: semesterId });
       const rawJadwal = res.data;
       const jadwal = Array.isArray(rawJadwal) ? rawJadwal : (rawJadwal?.data || []);
       setJadwalData(jadwal);
@@ -52,8 +61,8 @@ export default function JadwalAnak() {
     const anak = anakList.find(a => a.id === anakId);
     setSelectedAnak(anak);
     
-    if (anak?.kelas?.id) {
-      await fetchJadwal(anak.kelas.id);
+    if (anak?.kelas?.id && semesterAktif) {
+      await fetchJadwal(anak.kelas.id, semesterAktif.id);
     }
   }
 
