@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth, extractRole } from '../../context/AuthContext';
-import { userService } from '../../services/userService';
+import { profileService } from '../../services/profileService';
 
 const ROLE_LABEL = {
   admin: 'Admin Sekolah',
   'kepala sekolah': 'Kepala Sekolah',
-  'kepala_sekolah': 'Kepala Sekolah',
+  kepala_sekolah: 'Kepala Sekolah',
   guru: 'Guru',
   'wali kelas': 'Wali Kelas',
   wali_kelas: 'Wali Kelas',
@@ -15,109 +15,78 @@ const ROLE_LABEL = {
 };
 
 export default function ProfilePage() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const fileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading]     = useState(false);
+  const [fetching, setFetching]   = useState(true);
   const [message, setMessage]     = useState({ type: '', text: '' });
 
-  // Profile form state
-  const [profileForm, setProfileForm] = useState({
-    nama: user?.nama || '',
-    telepon: user?.telepon || '',
-  });
+  // Data profil dari backend
+  const [profile, setProfile] = useState(null);
 
-  // Password form state
+  // Form states
+  const [profileForm, setProfileForm] = useState({ nama: '', telepon: '' });
   const [passwordForm, setPasswordForm] = useState({
     password_lama: '',
     password_baru: '',
     konfirmasi_password: '',
   });
 
-  // Foto profil - ambil dari localStorage per user
-  const fotoKey = `foto_profil_${user?.id || 'guest'}`;
-  const [fotoProfil, setFotoProfil] = useState(() => {
-    return localStorage.getItem(fotoKey) || null;
-  });
+  // Foto states
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoFile, setFotoFile]       = useState(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
-  const role = extractRole(user);
-  const roleLabel = ROLE_LABEL[role] || role || '-';
+  // ─── Fetch profil dari backend ──────────────────────────────────────────
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const res = await profileService.getProfile();
+        const data = res.data || res;
+        setProfile(data);
+        setProfileForm({ nama: data.nama || '', telepon: data.telepon || '' });
+      } catch {
+        showMessage('error', 'Gagal memuat data profil');
+      } finally {
+        setFetching(false);
+      }
+    }
+    loadProfile();
+  }, []);
 
   function showMessage(type, text) {
     setMessage({ type, text });
     setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   }
 
-  // ─── Foto Profil ─────────────────────────────────────────────────────────
+  const role      = extractRole(user);
+  const roleLabel = ROLE_LABEL[role] || role || '-';
+  const initials  = (profile?.nama || user?.nama || 'U')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const displayFoto = fotoPreview || profile?.foto_profil || null;
 
-  function handleFotoChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      showMessage('error', 'File harus berupa gambar (JPG, PNG, dll)');
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      showMessage('error', 'Ukuran foto maksimal 2MB');
-      return;
-    }
-
-    setFotoFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setFotoPreview(ev.target.result);
-    reader.readAsDataURL(file);
-  }
-
-  function handleSaveFoto() {
-    if (!fotoPreview) return;
-    localStorage.setItem(fotoKey, fotoPreview);
-    setFotoProfil(fotoPreview);
-    setFotoPreview(null);
-    setFotoFile(null);
-    showMessage('success', 'Foto profil berhasil diperbarui!');
-  }
-
-  function handleCancelFoto() {
-    setFotoPreview(null);
-    setFotoFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  function handleRemoveFoto() {
-    if (!window.confirm('Hapus foto profil?')) return;
-    localStorage.removeItem(fotoKey);
-    setFotoProfil(null);
-    setFotoPreview(null);
-    setFotoFile(null);
-    showMessage('success', 'Foto profil dihapus');
-  }
-
-  // ─── Edit Profile ─────────────────────────────────────────────────────────
-
+  // ─── Edit Profil ─────────────────────────────────────────────────────────
   async function handleSaveProfile(e) {
     e.preventDefault();
     if (!profileForm.nama.trim()) {
       showMessage('error', 'Nama tidak boleh kosong');
       return;
     }
-
     setLoading(true);
     try {
-      await userService.update(user.id, {
-        nama: profileForm.nama.trim(),
+      const res = await profileService.updateProfile({
+        nama:    profileForm.nama.trim(),
         telepon: profileForm.telepon.trim(),
       });
+      const updated = res.data || res;
+      setProfile(prev => ({ ...prev, ...updated }));
 
-      // Update localStorage user
-      const updatedUser = { ...user, nama: profileForm.nama.trim(), telepon: profileForm.telepon.trim() };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-
-      // Reload halaman agar Header ikut update
-      window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: updatedUser }));
+      // Sync ke localStorage agar Header ikut update
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({ ...storedUser, nama: profileForm.nama.trim() }));
+      window.dispatchEvent(new CustomEvent('userProfileUpdated'));
 
       showMessage('success', 'Profil berhasil diperbarui!');
     } catch (err) {
@@ -128,7 +97,6 @@ export default function ProfilePage() {
   }
 
   // ─── Ganti Password ───────────────────────────────────────────────────────
-
   async function handleChangePassword(e) {
     e.preventDefault();
     const { password_lama, password_baru, konfirmasi_password } = passwordForm;
@@ -137,8 +105,8 @@ export default function ProfilePage() {
       showMessage('error', 'Semua field password harus diisi');
       return;
     }
-    if (password_baru.length < 6) {
-      showMessage('error', 'Password baru minimal 6 karakter');
+    if (password_baru.length < 8) {
+      showMessage('error', 'Password baru minimal 8 karakter');
       return;
     }
     if (password_baru !== konfirmasi_password) {
@@ -148,26 +116,99 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      await userService.changePassword(user.id, {
-        password_lama,
-        password_baru,
+      // Gunakan endpoint yang sudah ada di auth controller
+      await fetch('/api/v1/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ password_lama, password_baru }),
+      }).then(r => {
+        if (!r.ok) return r.json().then(d => { throw new Error(d.message || 'Gagal'); });
+        return r.json();
       });
+
       setPasswordForm({ password_lama: '', password_baru: '', konfirmasi_password: '' });
       showMessage('success', 'Password berhasil diubah!');
     } catch (err) {
-      showMessage('error', err?.response?.data?.message || 'Gagal mengubah password');
+      showMessage('error', err.message || 'Gagal mengubah password');
     } finally {
       setLoading(false);
     }
   }
 
-  // ─── Avatar helpers ───────────────────────────────────────────────────────
+  // ─── Foto Profil ─────────────────────────────────────────────────────────
+  function handleFotoChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const displayFoto = fotoPreview || fotoProfil;
-  const initials    = (user?.nama || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    if (!file.type.startsWith('image/')) {
+      showMessage('error', 'File harus berupa gambar (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showMessage('error', 'Ukuran foto maksimal 2MB');
+      return;
+    }
+
+    setFotoFile(file);
+    const reader = new FileReader();
+    reader.onload = ev => setFotoPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSaveFoto() {
+    if (!fotoFile) return;
+    setUploadingFoto(true);
+    try {
+      const res  = await profileService.uploadFoto(fotoFile);
+      const data = res.data || res;
+      setProfile(prev => ({ ...prev, foto_profil: data.foto_profil }));
+      setFotoPreview(null);
+      setFotoFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      showMessage('success', 'Foto profil berhasil diperbarui!');
+    } catch (err) {
+      showMessage('error', err?.response?.data?.message || 'Gagal mengupload foto');
+    } finally {
+      setUploadingFoto(false);
+    }
+  }
+
+  function handleCancelFoto() {
+    setFotoPreview(null);
+    setFotoFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function handleRemoveFoto() {
+    if (!window.confirm('Hapus foto profil?')) return;
+    setUploadingFoto(true);
+    try {
+      await profileService.deleteFoto();
+      setProfile(prev => ({ ...prev, foto_profil: '' }));
+      showMessage('success', 'Foto profil dihapus');
+    } catch {
+      showMessage('error', 'Gagal menghapus foto');
+    } finally {
+      setUploadingFoto(false);
+    }
+  }
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+  if (fetching) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center text-text-light">
+          <div className="text-3xl mb-2 animate-pulse">⏳</div>
+          <p>Memuat profil...</p>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Render ───────────────────────────────────────────────────────────────
-
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Page Header */}
@@ -187,9 +228,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Profile Card - Summary */}
+      {/* Profile Summary Card */}
       <div className="card p-6 flex items-center gap-6">
-        {/* Avatar */}
         <div className="relative flex-shrink-0">
           {displayFoto ? (
             <img
@@ -210,8 +250,11 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1">
-          <h2 className="text-xl font-bold text-text">{user?.nama || '-'}</h2>
-          <p className="text-text-light text-sm">{user?.email || user?.username || '-'}</p>
+          <h2 className="text-xl font-bold text-text">{profile?.nama || '-'}</h2>
+          <p className="text-text-light text-sm">{profile?.email || '-'}</p>
+          {profile?.telepon && (
+            <p className="text-text-light text-sm">📞 {profile.telepon}</p>
+          )}
           <span className="inline-block mt-2 px-3 py-1 bg-accent/30 text-primary text-xs font-semibold rounded-full">
             {roleLabel}
           </span>
@@ -244,7 +287,6 @@ export default function ProfilePage() {
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-text mb-6">Informasi Profil</h3>
           <form onSubmit={handleSaveProfile} className="space-y-5">
-            {/* Nama */}
             <div>
               <label className="block text-sm font-medium text-text mb-1.5">
                 Nama Lengkap <span className="text-error">*</span>
@@ -258,25 +300,19 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Email / Username - read only */}
             <div>
-              <label className="block text-sm font-medium text-text mb-1.5">
-                Email / Username
-              </label>
+              <label className="block text-sm font-medium text-text mb-1.5">Email</label>
               <input
                 type="text"
-                value={user?.email || user?.username || '-'}
+                value={profile?.email || '-'}
                 disabled
                 className="input w-full bg-gray-50 text-text-light cursor-not-allowed"
               />
-              <p className="text-xs text-text-light mt-1">Email/username tidak dapat diubah</p>
+              <p className="text-xs text-text-light mt-1">Email tidak dapat diubah</p>
             </div>
 
-            {/* Telepon */}
             <div>
-              <label className="block text-sm font-medium text-text mb-1.5">
-                Nomor Telepon
-              </label>
+              <label className="block text-sm font-medium text-text mb-1.5">Nomor Telepon</label>
               <input
                 type="tel"
                 value={profileForm.telepon}
@@ -286,7 +322,6 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Role - read only */}
             <div>
               <label className="block text-sm font-medium text-text mb-1.5">Role</label>
               <input
@@ -298,11 +333,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary px-6"
-              >
+              <button type="submit" disabled={loading} className="btn-primary px-6">
                 {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
@@ -314,7 +345,6 @@ export default function ProfilePage() {
       {activeTab === 'foto' && (
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-text mb-6">Foto Profil</h3>
-
           <div className="flex flex-col items-center gap-6">
             {/* Preview besar */}
             <div className="relative">
@@ -341,11 +371,11 @@ export default function ProfilePage() {
             >
               <div className="text-4xl mb-3">📁</div>
               <p className="text-text font-medium">Klik untuk pilih foto</p>
-              <p className="text-text-light text-sm mt-1">JPG, PNG, GIF — Maksimal 2MB</p>
+              <p className="text-text-light text-sm mt-1">JPG, PNG, WebP — Maksimal 2MB</p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handleFotoChange}
               />
@@ -354,16 +384,21 @@ export default function ProfilePage() {
             {/* Action buttons */}
             {fotoPreview ? (
               <div className="flex gap-3">
-                <button onClick={handleSaveFoto} className="btn-primary px-6">
-                  ✅ Simpan Foto
+                <button
+                  onClick={handleSaveFoto}
+                  disabled={uploadingFoto}
+                  className="btn-primary px-6"
+                >
+                  {uploadingFoto ? 'Mengupload...' : '✅ Simpan Foto'}
                 </button>
                 <button onClick={handleCancelFoto} className="btn-secondary px-6">
                   Batal
                 </button>
               </div>
-            ) : fotoProfil ? (
+            ) : profile?.foto_profil ? (
               <button
                 onClick={handleRemoveFoto}
+                disabled={uploadingFoto}
                 className="text-sm text-error hover:underline"
               >
                 🗑️ Hapus foto profil
@@ -371,7 +406,7 @@ export default function ProfilePage() {
             ) : null}
 
             <p className="text-xs text-text-light text-center">
-              Foto disimpan secara lokal di perangkat ini
+              Foto disimpan di server dan dapat diakses dari perangkat manapun
             </p>
           </div>
         </div>
@@ -400,9 +435,8 @@ export default function ProfilePage() {
               <PasswordInput
                 value={passwordForm.password_baru}
                 onChange={v => setPasswordForm(p => ({ ...p, password_baru: v }))}
-                placeholder="Minimal 6 karakter"
+                placeholder="Minimal 8 karakter"
               />
-              {/* Strength indicator */}
               {passwordForm.password_baru && (
                 <PasswordStrength password={passwordForm.password_baru} />
               )}
@@ -417,29 +451,28 @@ export default function ProfilePage() {
                 onChange={v => setPasswordForm(p => ({ ...p, konfirmasi_password: v }))}
                 placeholder="Ulangi password baru"
               />
-              {passwordForm.konfirmasi_password && passwordForm.password_baru !== passwordForm.konfirmasi_password && (
-                <p className="text-xs text-error mt-1">❌ Password tidak cocok</p>
-              )}
-              {passwordForm.konfirmasi_password && passwordForm.password_baru === passwordForm.konfirmasi_password && (
-                <p className="text-xs text-success mt-1">✅ Password cocok</p>
+              {passwordForm.konfirmasi_password && (
+                <p className={`text-xs mt-1 ${
+                  passwordForm.password_baru === passwordForm.konfirmasi_password
+                    ? 'text-success' : 'text-error'
+                }`}>
+                  {passwordForm.password_baru === passwordForm.konfirmasi_password
+                    ? '✅ Password cocok' : '❌ Password tidak cocok'}
+                </p>
               )}
             </div>
 
             <div className="bg-blue-50 border border-accent rounded-lg p-4 text-sm text-text-light">
               <p className="font-medium text-text mb-1">Tips keamanan password:</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>Minimal 6 karakter</li>
+                <li>Minimal 8 karakter</li>
                 <li>Kombinasi huruf besar, kecil, dan angka</li>
                 <li>Jangan gunakan informasi pribadi</li>
               </ul>
             </div>
 
             <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary px-6"
-              >
+              <button type="submit" disabled={loading} className="btn-primary px-6">
                 {loading ? 'Menyimpan...' : 'Ubah Password'}
               </button>
             </div>
@@ -450,7 +483,7 @@ export default function ProfilePage() {
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Sub-components ────────────────────────────────────────────────────────
 
 function PasswordInput({ value, onChange, placeholder }) {
   const [show, setShow] = useState(false);
@@ -476,18 +509,18 @@ function PasswordInput({ value, onChange, placeholder }) {
 
 function PasswordStrength({ password }) {
   let strength = 0;
-  if (password.length >= 6) strength++;
-  if (password.length >= 10) strength++;
-  if (/[A-Z]/.test(password)) strength++;
-  if (/[0-9]/.test(password)) strength++;
+  if (password.length >= 8)          strength++;
+  if (password.length >= 12)         strength++;
+  if (/[A-Z]/.test(password))        strength++;
+  if (/[0-9]/.test(password))        strength++;
   if (/[^A-Za-z0-9]/.test(password)) strength++;
 
   const levels = [
-    { label: 'Sangat Lemah', color: 'bg-red-500' },
-    { label: 'Lemah',        color: 'bg-orange-400' },
-    { label: 'Cukup',        color: 'bg-yellow-400' },
-    { label: 'Kuat',         color: 'bg-blue-500' },
-    { label: 'Sangat Kuat',  color: 'bg-green-500' },
+    { label: 'Sangat Lemah', color: 'bg-red-500',    text: 'text-red-500' },
+    { label: 'Lemah',        color: 'bg-orange-400',  text: 'text-orange-400' },
+    { label: 'Cukup',        color: 'bg-yellow-400',  text: 'text-yellow-400' },
+    { label: 'Kuat',         color: 'bg-blue-500',    text: 'text-blue-500' },
+    { label: 'Sangat Kuat',  color: 'bg-green-500',   text: 'text-green-500' },
   ];
   const lvl = levels[Math.min(strength, 4)];
 
@@ -497,13 +530,11 @@ function PasswordStrength({ password }) {
         {[0, 1, 2, 3, 4].map(i => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-all ${
-              i < strength ? lvl.color : 'bg-gray-200'
-            }`}
+            className={`h-1 flex-1 rounded-full transition-all ${i < strength ? lvl.color : 'bg-gray-200'}`}
           />
         ))}
       </div>
-      <p className={`text-xs ${lvl.color.replace('bg-', 'text-')}`}>{lvl.label}</p>
+      <p className={`text-xs ${lvl.text}`}>{lvl.label}</p>
     </div>
   );
 }
