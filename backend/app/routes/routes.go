@@ -13,6 +13,8 @@ func RegisterRoutes(r *gin.Engine) {
 	r.Use(gin.Recovery())
 	r.Use(corsMiddleware())
 
+	r.Static("/uploads", "./uploads")
+
 	api := r.Group("/api/v1")
 
 	// ── Health Check ─────────────────────────────────────────────
@@ -63,6 +65,25 @@ func RegisterRoutes(r *gin.Engine) {
 				middlewares.ActivityLogger("DELETE", "user"),
 				controllers.DeleteUser,
 			)
+		}
+
+		// ── Profil (semua user) ───────────────────────────────────
+		profile := protected.Group("/profile")
+		{
+			profile.GET("",        controllers.GetProfile)
+			profile.PUT("",        controllers.UpdateProfile)
+			profile.POST("/foto",  controllers.UploadFotoProfil)
+			profile.DELETE("/foto", controllers.DeleteFotoProfil)
+		}
+
+		// ── Notifikasi ─────────────────────────────────────────────
+		notif := protected.Group("/notifications")
+		{
+			notif.GET("",                controllers.GetNotifications)
+			notif.PUT("/read-all",       controllers.MarkAllNotificationsRead)
+			notif.PUT("/:id/read",       controllers.MarkNotificationRead)
+			notif.DELETE("",             controllers.DeleteAllNotifications)
+			notif.DELETE("/:id",         controllers.DeleteNotification)
 		}
 
 		// ── Tahun Ajaran (admin) ─────────────────────────────────

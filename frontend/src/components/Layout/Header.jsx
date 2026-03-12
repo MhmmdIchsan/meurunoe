@@ -7,29 +7,28 @@ export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [fotoProfil, setFotoProfil] = useState(null);
+  const [fotoProfil, setFotoProfil]     = useState(user?.foto_profil || null);
+  const [nama, setNama]                 = useState(user?.nama || '');
 
-  // Load foto profil dari localStorage (per user)
+  // Sync foto & nama jika user context berubah
   useEffect(() => {
-    if (!user?.id) return;
-    const fotoKey = `foto_profil_${user.id}`;
-    setFotoProfil(localStorage.getItem(fotoKey));
-  }, [user?.id]);
+    setFotoProfil(user?.foto_profil || null);
+    setNama(user?.nama || '');
+  }, [user]);
 
-  // Listen for profile photo updates
+  // Listen untuk update dari ProfilePage (setelah simpan profil/foto)
   useEffect(() => {
-    function handleFotoUpdate() {
-      if (!user?.id) return;
-      const fotoKey = `foto_profil_${user.id}`;
-      setFotoProfil(localStorage.getItem(fotoKey));
+    function handleProfileUpdate() {
+      // Re-read dari localStorage (ProfilePage sudah update di sini)
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+        setFotoProfil(stored.foto_profil || null);
+        setNama(stored.nama || '');
+      } catch { /* silent */ }
     }
-    window.addEventListener('userProfileUpdated', handleFotoUpdate);
-    window.addEventListener('fotoProfilUpdated', handleFotoUpdate);
-    return () => {
-      window.removeEventListener('userProfileUpdated', handleFotoUpdate);
-      window.removeEventListener('fotoProfilUpdated', handleFotoUpdate);
-    };
-  }, [user?.id]);
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+  }, []);
 
   function handleLogout() {
     if (window.confirm('Yakin ingin logout?')) {
@@ -44,38 +43,33 @@ export default function Header() {
     return (typeof r === 'string') ? r : (r.nama_role || r.nama || r.name || '-');
   })();
 
-  const initials = (user?.nama || 'U')
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = (nama || 'U')
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6">
       <div>
         <h2 className="text-lg font-semibold text-text">
-          Selamat Datang, {user?.nama || 'User'}
+          Selamat Datang, {nama || 'User'}
         </h2>
         <p className="text-xs text-text-light capitalize">{roleLabel}</p>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Notification Bell */}
         <NotificationBell />
 
-        {/* User Menu */}
+        {/* User Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors"
           >
-            {/* Avatar */}
             {fotoProfil ? (
               <img
                 src={fotoProfil}
                 alt="Foto Profil"
                 className="w-9 h-9 rounded-full object-cover border-2 border-accent"
+                onError={() => setFotoProfil(null)} // fallback ke inisial jika foto gagal load
               />
             ) : (
               <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm">
@@ -85,18 +79,16 @@ export default function Header() {
             <span className="text-xs text-text-light hidden sm:block">▾</span>
           </button>
 
-          {/* Dropdown */}
           {showUserMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-border z-20 py-1">
-                {/* User info */}
+                {/* Info user */}
                 <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-text truncate">{user?.nama || '-'}</p>
-                  <p className="text-xs text-text-light truncate capitalize">{roleLabel}</p>
+                  <p className="text-sm font-semibold text-text truncate">{nama || '-'}</p>
+                  <p className="text-xs text-text-light capitalize truncate">{roleLabel}</p>
                 </div>
 
-                {/* Menu items */}
                 <Link
                   to="/profile"
                   onClick={() => setShowUserMenu(false)}
@@ -106,6 +98,7 @@ export default function Header() {
                 </Link>
                 <Link
                   to="/profile"
+                  state={{ tab: 'password' }}
                   onClick={() => setShowUserMenu(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-gray-50 transition-colors"
                 >

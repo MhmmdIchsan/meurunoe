@@ -13,6 +13,8 @@ type User struct {
 	Nama       string         `gorm:"type:varchar(100);not null" json:"nama"`
 	Email      string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"email"`
 	Password   string         `gorm:"type:varchar(255);not null" json:"-"`
+	Telepon    string         `gorm:"type:varchar(20)" json:"telepon,omitempty"`
+	FotoProfil string         `gorm:"type:varchar(500)" json:"foto_profil,omitempty"`
 	IsActive   bool           `gorm:"default:true" json:"is_active"`
 	LastLogin  *time.Time     `json:"last_login,omitempty"`
 	CreatedAt  time.Time      `json:"created_at"`
