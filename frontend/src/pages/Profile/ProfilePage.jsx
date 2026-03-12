@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth, extractRole } from '../../context/AuthContext';
 import { profileService } from '../../services/profileService';
 
@@ -15,10 +16,12 @@ const ROLE_LABEL = {
 };
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const location  = useLocation();
   const fileInputRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('profile');
+  // Buka tab tertentu via location.state (misal dari Header dropdown "Ganti Password")
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'profile');
   const [loading, setLoading]     = useState(false);
   const [fetching, setFetching]   = useState(true);
   const [message, setMessage]     = useState({ type: '', text: '' });
@@ -35,15 +38,15 @@ export default function ProfilePage() {
   });
 
   // Foto states
-  const [fotoPreview, setFotoPreview] = useState(null);
-  const [fotoFile, setFotoFile]       = useState(null);
+  const [fotoPreview, setFotoPreview]     = useState(null);
+  const [fotoFile, setFotoFile]           = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
-  // ─── Fetch profil dari backend ──────────────────────────────────────────
+  // ─── Fetch profil dari backend ────────────────────────────────────────────
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await profileService.getProfile();
+        const res  = await profileService.getProfile();
         const data = res.data || res;
         setProfile(data);
         setProfileForm({ nama: data.nama || '', telepon: data.telepon || '' });
@@ -65,9 +68,11 @@ export default function ProfilePage() {
   const roleLabel = ROLE_LABEL[role] || role || '-';
   const initials  = (profile?.nama || user?.nama || 'U')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  // Foto yang ditampilkan: preview lokal > foto dari backend
   const displayFoto = fotoPreview || profile?.foto_profil || null;
 
-  // ─── Edit Profil ─────────────────────────────────────────────────────────
+  // ─── Edit Profil ──────────────────────────────────────────────────────────
   async function handleSaveProfile(e) {
     e.preventDefault();
     if (!profileForm.nama.trim()) {
@@ -76,17 +81,17 @@ export default function ProfilePage() {
     }
     setLoading(true);
     try {
-      const res = await profileService.updateProfile({
+      const res     = await profileService.updateProfile({
         nama:    profileForm.nama.trim(),
         telepon: profileForm.telepon.trim(),
       });
       const updated = res.data || res;
+
+      // Update local state
       setProfile(prev => ({ ...prev, ...updated }));
 
-      // Sync ke localStorage agar Header ikut update
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      localStorage.setItem('user', JSON.stringify({ ...storedUser, nama: profileForm.nama.trim() }));
-      window.dispatchEvent(new CustomEvent('userProfileUpdated'));
+      // ✅ Update AuthContext → Header langsung re-render
+      updateUser({ nama: updated.nama || profileForm.nama.trim() });
 
       showMessage('success', 'Profil berhasil diperbarui!');
     } catch (err) {
@@ -116,18 +121,17 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      // Gunakan endpoint yang sudah ada di auth controller
-      await fetch('/api/v1/auth/change-password', {
-        method: 'PUT',
+      const token = localStorage.getItem('token');
+      const res   = await fetch('/api/v1/auth/change-password', {
+        method:  'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization:  `Bearer ${token}`,
         },
         body: JSON.stringify({ password_lama, password_baru }),
-      }).then(r => {
-        if (!r.ok) return r.json().then(d => { throw new Error(d.message || 'Gagal'); });
-        return r.json();
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Gagal mengubah password');
 
       setPasswordForm({ password_lama: '', password_baru: '', konfirmasi_password: '' });
       showMessage('success', 'Password berhasil diubah!');
@@ -138,7 +142,7 @@ export default function ProfilePage() {
     }
   }
 
-  // ─── Foto Profil ─────────────────────────────────────────────────────────
+  // ─── Foto Profil ──────────────────────────────────────────────────────────
   function handleFotoChange(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -164,10 +168,19 @@ export default function ProfilePage() {
     try {
       const res  = await profileService.uploadFoto(fotoFile);
       const data = res.data || res;
-      setProfile(prev => ({ ...prev, foto_profil: data.foto_profil }));
+      const fotoUrl = data.foto_profil;
+
+      // Update local state
+      setProfile(prev => ({ ...prev, foto_profil: fotoUrl }));
+
+      // ✅ Update AuthContext → Header langsung tampilkan foto baru
+      updateUser({ foto_profil: fotoUrl });
+
+      // Bersihkan preview
       setFotoPreview(null);
       setFotoFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+
       showMessage('success', 'Foto profil berhasil diperbarui!');
     } catch (err) {
       showMessage('error', err?.response?.data?.message || 'Gagal mengupload foto');
@@ -187,7 +200,13 @@ export default function ProfilePage() {
     setUploadingFoto(true);
     try {
       await profileService.deleteFoto();
+
+      // Update local state
       setProfile(prev => ({ ...prev, foto_profil: '' }));
+
+      // ✅ Update AuthContext → Header kembali ke inisial
+      updateUser({ foto_profil: '' });
+
       showMessage('success', 'Foto profil dihapus');
     } catch {
       showMessage('error', 'Gagal menghapus foto');
@@ -196,7 +215,7 @@ export default function ProfilePage() {
     }
   }
 
-  // ─── Loading state ────────────────────────────────────────────────────────
+  // ─── Loading ──────────────────────────────────────────────────────────────
   if (fetching) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -211,7 +230,6 @@ export default function ProfilePage() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-text">Profil Saya</h1>
         <p className="text-text-light text-sm mt-1">Kelola informasi akun dan keamanan Anda</p>
@@ -228,7 +246,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Profile Summary Card */}
+      {/* Summary Card */}
       <div className="card p-6 flex items-center gap-6">
         <div className="relative flex-shrink-0">
           {displayFoto ? (
@@ -248,7 +266,6 @@ export default function ProfilePage() {
             </span>
           )}
         </div>
-
         <div className="flex-1">
           <h2 className="text-xl font-bold text-text">{profile?.nama || '-'}</h2>
           <p className="text-text-light text-sm">{profile?.email || '-'}</p>
@@ -346,7 +363,6 @@ export default function ProfilePage() {
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-text mb-6">Foto Profil</h3>
           <div className="flex flex-col items-center gap-6">
-            {/* Preview besar */}
             <div className="relative">
               {displayFoto ? (
                 <img
@@ -364,7 +380,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Upload area */}
             <div
               className="w-full border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary hover:bg-blue-50 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -381,31 +396,20 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Action buttons */}
             {fotoPreview ? (
               <div className="flex gap-3">
-                <button
-                  onClick={handleSaveFoto}
-                  disabled={uploadingFoto}
-                  className="btn-primary px-6"
-                >
+                <button onClick={handleSaveFoto} disabled={uploadingFoto} className="btn-primary px-6">
                   {uploadingFoto ? 'Mengupload...' : '✅ Simpan Foto'}
                 </button>
-                <button onClick={handleCancelFoto} className="btn-secondary px-6">
-                  Batal
-                </button>
+                <button onClick={handleCancelFoto} className="btn-secondary px-6">Batal</button>
               </div>
             ) : profile?.foto_profil ? (
-              <button
-                onClick={handleRemoveFoto}
-                disabled={uploadingFoto}
-                className="text-sm text-error hover:underline"
-              >
+              <button onClick={handleRemoveFoto} disabled={uploadingFoto} className="text-sm text-error hover:underline">
                 🗑️ Hapus foto profil
               </button>
             ) : null}
 
-            <p className="text-xs text-text-light text-center">
+            <p className="text-xs text-text-light">
               Foto disimpan di server dan dapat diakses dari perangkat manapun
             </p>
           </div>
@@ -516,22 +520,19 @@ function PasswordStrength({ password }) {
   if (/[^A-Za-z0-9]/.test(password)) strength++;
 
   const levels = [
-    { label: 'Sangat Lemah', color: 'bg-red-500',    text: 'text-red-500' },
-    { label: 'Lemah',        color: 'bg-orange-400',  text: 'text-orange-400' },
-    { label: 'Cukup',        color: 'bg-yellow-400',  text: 'text-yellow-400' },
-    { label: 'Kuat',         color: 'bg-blue-500',    text: 'text-blue-500' },
-    { label: 'Sangat Kuat',  color: 'bg-green-500',   text: 'text-green-500' },
+    { label: 'Sangat Lemah', color: 'bg-red-500',   text: 'text-red-500' },
+    { label: 'Lemah',        color: 'bg-orange-400', text: 'text-orange-400' },
+    { label: 'Cukup',        color: 'bg-yellow-400', text: 'text-yellow-400' },
+    { label: 'Kuat',         color: 'bg-blue-500',   text: 'text-blue-500' },
+    { label: 'Sangat Kuat',  color: 'bg-green-500',  text: 'text-green-500' },
   ];
   const lvl = levels[Math.min(strength, 4)];
 
   return (
     <div className="mt-2">
       <div className="flex gap-1 mb-1">
-        {[0, 1, 2, 3, 4].map(i => (
-          <div
-            key={i}
-            className={`h-1 flex-1 rounded-full transition-all ${i < strength ? lvl.color : 'bg-gray-200'}`}
-          />
+        {[0,1,2,3,4].map(i => (
+          <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i < strength ? lvl.color : 'bg-gray-200'}`} />
         ))}
       </div>
       <p className={`text-xs ${lvl.text}`}>{lvl.label}</p>
