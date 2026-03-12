@@ -10,18 +10,16 @@ export const useAuth = () => {
 };
 
 // Ekstrak role name dari berbagai kemungkinan struktur backend
-// Kembalikan selalu lowercase string
 export const extractRole = (user) => {
   if (!user) return '';
   const r = user.role;
   if (!r) return '';
-  // Kemungkinan: { nama_role: "Admin" } | { name: "admin" } | "admin"
   const raw = (typeof r === 'string') ? r : (r.nama_role || r.name || '');
   return raw.toLowerCase().trim();
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]     = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,11 +27,7 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
       try {
-        const parsed = JSON.parse(storedUser);
-        console.log('[Auth] Restored user:', parsed);
-        console.log('[Auth] Role structure:', parsed?.role);
-        console.log('[Auth] Extracted role:', extractRole(parsed));
-        setUser(parsed);
+        setUser(JSON.parse(storedUser));
       } catch {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -45,7 +39,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post('/auth/login', { email, password });
-      console.log('[Auth] Login response:', res.data);
 
       let token, userData;
       if (res.data.data) {
@@ -57,10 +50,6 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!token) throw new Error('Token tidak ditemukan dalam response');
-
-      console.log('[Auth] User object:', userData);
-      console.log('[Auth] Role object:', userData?.role);
-      console.log('[Auth] Extracted role:', extractRole(userData));
 
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -77,6 +66,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Update sebagian field user di context + localStorage
+   * Dipanggil setelah edit profil atau upload foto
+   * @param {Partial<User>} partialUser - field yang berubah saja
+   */
+  const updateUser = (partialUser) => {
+    setUser(prev => {
+      const updated = { ...prev, ...partialUser };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -89,6 +91,7 @@ export const AuthProvider = ({ children }) => {
       user,
       login,
       logout,
+      updateUser,
       loading,
       isAuthenticated: !!user && !!localStorage.getItem('token'),
     }}>
