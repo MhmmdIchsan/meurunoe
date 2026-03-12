@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, extractRole } from '../../context/AuthContext';
 import NotificationBell from '../Notifications/NotificationBell';
@@ -7,28 +7,6 @@ export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [fotoProfil, setFotoProfil]     = useState(user?.foto_profil || null);
-  const [nama, setNama]                 = useState(user?.nama || '');
-
-  // Sync foto & nama jika user context berubah
-  useEffect(() => {
-    setFotoProfil(user?.foto_profil || null);
-    setNama(user?.nama || '');
-  }, [user]);
-
-  // Listen untuk update dari ProfilePage (setelah simpan profil/foto)
-  useEffect(() => {
-    function handleProfileUpdate() {
-      // Re-read dari localStorage (ProfilePage sudah update di sini)
-      try {
-        const stored = JSON.parse(localStorage.getItem('user') || '{}');
-        setFotoProfil(stored.foto_profil || null);
-        setNama(stored.nama || '');
-      } catch { /* silent */ }
-    }
-    window.addEventListener('userProfileUpdated', handleProfileUpdate);
-    return () => window.removeEventListener('userProfileUpdated', handleProfileUpdate);
-  }, []);
 
   function handleLogout() {
     if (window.confirm('Yakin ingin logout?')) {
@@ -43,14 +21,17 @@ export default function Header() {
     return (typeof r === 'string') ? r : (r.nama_role || r.nama || r.name || '-');
   })();
 
-  const initials = (nama || 'U')
+  const initials = (user?.nama || 'U')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  // ✅ Baca foto langsung dari user context — otomatis update saat updateUser() dipanggil
+  const fotoProfil = user?.foto_profil || null;
 
   return (
     <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6">
       <div>
         <h2 className="text-lg font-semibold text-text">
-          Selamat Datang, {nama || 'User'}
+          Selamat Datang, {user?.nama || 'User'}
         </h2>
         <p className="text-xs text-text-light capitalize">{roleLabel}</p>
       </div>
@@ -69,7 +50,7 @@ export default function Header() {
                 src={fotoProfil}
                 alt="Foto Profil"
                 className="w-9 h-9 rounded-full object-cover border-2 border-accent"
-                onError={() => setFotoProfil(null)} // fallback ke inisial jika foto gagal load
+                onError={e => { e.target.style.display = 'none'; }}
               />
             ) : (
               <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-sm">
@@ -83,9 +64,8 @@ export default function Header() {
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
               <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-border z-20 py-1">
-                {/* Info user */}
                 <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-text truncate">{nama || '-'}</p>
+                  <p className="text-sm font-semibold text-text truncate">{user?.nama || '-'}</p>
                   <p className="text-xs text-text-light capitalize truncate">{roleLabel}</p>
                 </div>
 
