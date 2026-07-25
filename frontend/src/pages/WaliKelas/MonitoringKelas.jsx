@@ -22,18 +22,21 @@ export default function MonitoringKelas() {
   async function fetchData() {
     setLoading(true);
     try {
-      // 1. Ambil semester aktif
-      const semRes = await semesterService.getAktif();
-      const activeSem = semRes.data;
+      // 1. Ambil semester aktif (jangan gagal kalau belum ada)
+      let activeSem = null;
+      try {
+        const semRes = await semesterService.getAktif();
+        activeSem = semRes.data;
+      } catch { /* no active semester yet */ }
       setSemester(activeSem);
 
       // 2. Ambil semua kelas
       const kelasRes = await kelasService.getAll();
       const allKelas = Array.isArray(kelasRes.data) ? kelasRes.data : (kelasRes.data?.data || []);
-      
+
       // 3. Cari kelas yang wali_kelas.user_id === current user
       const myKelas = allKelas.find(k => k.wali_kelas?.user_id === user.id);
-      
+
       if (!myKelas) {
         setLoading(false);
         return;
@@ -47,10 +50,12 @@ export default function MonitoringKelas() {
 
       // 5. Ambil rekap absensi kelas
       if (activeSem) {
-        const rekapRes = await absensiService.getRekapKelas(myKelas.id, {
-          semester_id: activeSem.id,
-        });
-        setRekapAbsensi(rekapRes.data?.rekap || []);
+        try {
+          const rekapRes = await absensiService.getRekapKelas(myKelas.id, {
+            semester_id: activeSem.id,
+          });
+          setRekapAbsensi(rekapRes.data?.rekap || []);
+        } catch { /* no absensi data yet */ }
       }
     } catch (e) {
       console.error('Error:', e);

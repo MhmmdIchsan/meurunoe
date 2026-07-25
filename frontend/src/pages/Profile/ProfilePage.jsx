@@ -5,13 +5,13 @@ import { profileService } from '../../services/profileService';
 
 const ROLE_LABEL = {
   admin: 'Admin Sekolah',
-  'kepala sekolah': 'Kepala Sekolah',
+  'kepala_sekolah': 'Kepala Sekolah',
   kepala_sekolah: 'Kepala Sekolah',
   guru: 'Guru',
-  'wali kelas': 'Wali Kelas',
+  'wali_kelas': 'Wali Kelas',
   wali_kelas: 'Wali Kelas',
   siswa: 'Siswa',
-  'orang tua': 'Orang Tua',
+  'orang_tua': 'Orang Tua',
   orang_tua: 'Orang Tua',
 };
 

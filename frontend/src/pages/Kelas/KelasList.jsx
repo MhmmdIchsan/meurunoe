@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useAuth, extractRole } from '../../context/AuthContext';
 import { kelasService } from '../../services/kelasService';
 import { guruService } from '../../services/guruService';
 import { jurusanService } from "../../services/jurusanService";
-import { tahunAjaranService } from "../../services/tahunajaranService";
+import { tahunAjaranService } from "../../services/tahunAjaranService";
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
 import Alert from '../../components/Common/Alert';
 
 const KelasList = () => {
+  const { user } = useAuth();
+  const role = extractRole(user);
+  const isAdmin = role === 'admin';
   const [kelas, setKelas] = useState([]);
   const [guru, setGuru] = useState([]);
   const [jurusanList, setJurusanList] = useState([]);
@@ -39,13 +43,16 @@ const fetchData = async () => {
       tahunAjaranService.getAll(),
     ]);
 
-    setKelas(kelasRes.data || []);
-    setGuru(guruRes.data || []);
-    setJurusanList(jurusanRes.data || []);
-    setTaList(taRes.data || []);
+    // Robust parsing: handle berbagai format response
+    const parseData = (raw) => Array.isArray(raw) ? raw : (raw?.data || []);
+
+    setKelas(parseData(kelasRes));
+    setGuru(parseData(guruRes));
+    setJurusanList(parseData(jurusanRes));
+    setTaList(parseData(taRes));
 
   } catch (error) {
-    console.log(error); // 🔥 WAJIB buat debug
+    console.log(error);
     showAlert('error', 'Gagal memuat data');
   } finally {
     setLoading(false);
@@ -143,10 +150,12 @@ const fetchData = async () => {
           <h1 className="text-2xl font-bold text-text">Data Kelas</h1>
           <p className="text-text-light mt-1">Kelola data kelas sekolah</p>
         </div>
-        <button onClick={handleAdd} className="btn-primary">
-          <span className="mr-2">➕</span>
-          Tambah Kelas
-        </button>
+        {isAdmin && (
+          <button onClick={handleAdd} className="btn-primary">
+            <span className="mr-2">➕</span>
+            Tambah Kelas
+          </button>
+        )}
       </div>
 
       {alert.show && <Alert type={alert.type} message={alert.message} />}
@@ -193,20 +202,22 @@ const fetchData = async () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4 border-t border-border">
-                <button
-                  onClick={() => handleEdit(item)}
-                  className="flex-1 btn-primary text-sm py-2"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="flex-1 btn-danger text-sm py-2"
-                >
-                  🗑️ Hapus
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="flex gap-2 pt-4 border-t border-border">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 btn-primary text-sm py-2"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex-1 btn-danger text-sm py-2"
+                  >
+                    🗑️ Hapus
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}

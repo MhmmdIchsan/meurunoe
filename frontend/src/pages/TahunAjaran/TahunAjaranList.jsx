@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { semesterService } from "../../services/semesterService";
-import { tahunAjaranService } from "../../services/tahunajaranService";
+import { tahunAjaranService } from "../../services/tahunAjaranService";
 import LoadingSpinner from "../../components/Common/LoadingSpinner";
 import Modal from "../../components/Common/Modal";
 import Alert from "../../components/Common/Alert";

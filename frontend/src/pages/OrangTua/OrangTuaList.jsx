@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { orangTuaService } from '../../services/orangTuaService';
+import { userService } from '../../services/userService';
 import { siswaService } from '../../services/siswaService';
 import api from '../../utils/api';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
@@ -8,10 +9,14 @@ import Modal from '../../components/Common/Modal';
 const EMPTY_FORM = {
   nama: '',
   email: '',
+  password: '',
   telepon: '',
   alamat: '',
   pekerjaan: '',
+  user_id: '',
 };
+
+const ROLE_ORTU_ID = 6;
 
 export default function OrangTuaList() {
   const [orangTuaList, setOrangTuaList] = useState([]);
@@ -26,10 +31,11 @@ export default function OrangTuaList() {
   const [success, setSuccess] = useState('');
   const [errMsg, setErrMsg] = useState('');
   const [search, setSearch] = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   // Assign siswa state
   const [selectedSiswaIds, setSelectedSiswaIds] = useState([]);
-  const [hubunganMap, setHubunganMap] = useState({}); // { siswaId: 'ayah'/'ibu'/'wali' }
+  const [hubunganMap, setHubunganMap] = useState({});
   const [currentAnak, setCurrentAnak] = useState([]);
 
   useEffect(() => { fetchAll(); }, []);
@@ -57,12 +63,18 @@ export default function OrangTuaList() {
     }
   }
 
-  function openAdd() {
+  async function openAdd() {
     setEditMode(false);
     setSelected(null);
     setForm(EMPTY_FORM);
     setErrMsg('');
     setSuccess('');
+    try {
+      const res = await userService.getAll({ role_id: ROLE_ORTU_ID, limit: 200 });
+      const users = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const ortuUserIds = new Set(orangTuaList.map(o => o.user_id));
+      setAvailableUsers(users.filter(u => !ortuUserIds.has(u.id)));
+    } catch { setAvailableUsers([]); }
     setShowModal(true);
   }
 
@@ -135,10 +147,16 @@ export default function OrangTuaList() {
         await orangTuaService.update(selected.id, payload);
         setSuccess('Orang tua berhasil diperbarui');
       } else {
-        // Untuk create, tambahkan password default
-        payload.password = 'password123'; // Password default
+        if (form.user_id) {
+          payload.user_id = Number(form.user_id);
+        } else {
+          payload.password = form.password || 'password123';
+          payload.email = form.email;
+        }
         await orangTuaService.create(payload);
-        setSuccess('Orang tua berhasil ditambahkan. Password default: password123');
+        setSuccess(form.user_id
+          ? 'Orang tua berhasil ditambahkan'
+          : 'Orang tua berhasil ditambahkan. Password default: password123');
       }
 
       setShowModal(false);
@@ -340,24 +358,72 @@ export default function OrangTuaList() {
               className="input-field" required />
           </div>
 
+          {/* Akun Login — hanya saat CREATE */}
+          {!editMode && (
+            <div className="p-4 bg-gray-50 rounded-lg border border-border mb-4">
+              <p className="text-xs font-semibold text-text-light uppercase tracking-wide mb-3">
+                🔐 Akun Login Orang Tua
+              </p>
+
+              {availableUsers.length > 0 && (
+                <div className="mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!form.user_id}
+                      onChange={e => setForm(p => ({ ...p, user_id: e.target.checked ? (availableUsers[0]?.id || '') : '' }))}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-text">Gunakan user yang sudah ada (dari Manajemen User)</span>
+                  </label>
+                  {form.user_id && (
+                    <select name="user_id" value={form.user_id} onChange={ch} className="input-field mt-2">
+                      <option value="">-- Pilih User --</option>
+                      {availableUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.nama} — {u.email}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {!form.user_id && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Email *</label>
+                    <input type="email" name="email" value={form.email} onChange={ch}
+                      className="input-field" required={!form.user_id} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Password</label>
+                    <input type="text" name="password" value={form.password} onChange={ch}
+                      className="input-field" placeholder="Default: password123" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Email — hanya tampil di edit mode (create sudah di section akun) */}
+          {editMode && (
+            <div>
+              <label className="block text-sm font-medium text-text mb-1">Email</label>
+              <input type="email" name="email" value={form.email} onChange={ch} className="input-field" />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text mb-1">Email *</label>
-              <input type="email" name="email" value={form.email} onChange={ch}
-                className="input-field" required />
+              <label className="block text-sm font-medium text-text mb-1">Telepon</label>
+              <input type="tel" name="telepon" value={form.telepon} onChange={ch}
+                className="input-field" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-1">Telepon *</label>
-              <input type="tel" name="telepon" value={form.telepon} onChange={ch}
-                className="input-field" required />
+              <label className="block text-sm font-medium text-text mb-1">Pekerjaan</label>
+              <input type="text" name="pekerjaan" value={form.pekerjaan} onChange={ch}
+                className="input-field" />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text mb-1">Pekerjaan</label>
-            <input type="text" name="pekerjaan" value={form.pekerjaan} onChange={ch}
-              className="input-field" />
           </div>
 
           <div>
@@ -367,9 +433,11 @@ export default function OrangTuaList() {
           </div>
 
           <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-            <strong>ℹ️ Info:</strong> 
+            <strong>ℹ️ Info:</strong>
             {editMode ? (
               <span> Setelah update, Anda bisa assign siswa di tabel → klik "X anak"</span>
+            ) : form.user_id ? (
+              <span> Data orang tua akan ditautkan ke user yang dipilih. Setelah simpan, assign siswa melalui kolom Anak.</span>
             ) : (
               <span> Password default untuk login orang tua adalah: <strong>password123</strong>. Orang tua bisa mengubahnya setelah login.</span>
             )}

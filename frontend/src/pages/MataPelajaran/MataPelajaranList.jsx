@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { mataPelajaranService } from "../../services/mataPelajaranService";
+import { mataPelajaranService } from "../../services/matapelajaranService";
 import Modal from "../../components/Common/Modal";
 import Alert from "../../components/Common/Alert";
 import LoadingSpinner from "../../components/Common/LoadingSpinner";

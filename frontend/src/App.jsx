@@ -13,8 +13,14 @@ import JadwalList   from './pages/Jadwal/JadwalList';
 import AbsensiInput from './pages/Absensi/AbsensiInput';
 import RaporList    from './pages/Rapor/RaporList';
 
+// E-Learning
+import ElearningPage from './pages/Elearning/ElearningPage';
+
 // Profile
 import ProfilePage from './pages/Profile/ProfilePage';
+
+// Jurusan
+import JurusanList from './pages/Jurusan/JurusanList';
 
 // Mata Pelajaran
 import MataPelajaranList from './pages/MataPelajaran/MataPelajaranList';
@@ -64,12 +70,14 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="elearning"   element={<ElearningPage />} />
             <Route path="profile"      element={<ProfilePage />} />
             <Route path="dashboard"    element={<Dashboard />} />
             <Route path="users"        element={<UserList />} />
             <Route path="siswa"        element={<SiswaList />} />
             <Route path="guru"         element={<GuruList />} />
             <Route path="kelas"        element={<KelasList />} />
+            <Route path="jurusan"     element={<JurusanList />} />
             <Route path="mapel"        element={<MataPelajaranList />} />
             <Route path="tahun-ajaran" element={<TahunAjaranList />} />
             <Route path="jadwal"       element={<JadwalList />} />

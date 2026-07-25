@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { siswaService } from '../../services/siswaService';
+import { userService } from '../../services/userService';
 import { kelasService } from '../../services/kelasService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
@@ -11,13 +12,15 @@ import Modal from '../../components/Common/Modal';
 const EMPTY_CREATE = {
   nisn: '', nis: '', nama: '', jenis_kelamin: 'L',
   tanggal_lahir: '', alamat: '', kelas_id: '',
-  email: '', password: '',
+  email: '', password: '', user_id: '',
 };
 const EMPTY_EDIT = {
   nisn: '', nis: '', nama: '', jenis_kelamin: 'L',
   tanggal_lahir: '', alamat: '', kelas_id: '',
   email: '', is_active: true,
 };
+
+const ROLE_SISWA_ID = 5;
 
 export default function SiswaList() {
   const [siswa, setSiswa]         = useState([]);
@@ -32,6 +35,7 @@ export default function SiswaList() {
   const [errMsg, setErrMsg]       = useState('');
   const [search, setSearch]       = useState('');
   const [filterKelas, setFilterKelas] = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -53,9 +57,15 @@ export default function SiswaList() {
     }
   }
 
-  function openAdd() {
+  async function openAdd() {
     setEditMode(false); setSelected(null);
     setForm(EMPTY_CREATE); setErrMsg(''); setSuccess('');
+    try {
+      const res = await userService.getAll({ role_id: ROLE_SISWA_ID, limit: 200 });
+      const users = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const siswaUserIds = new Set(siswa.map(s => s.user_id));
+      setAvailableUsers(users.filter(u => !siswaUserIds.has(u.id)));
+    } catch { setAvailableUsers([]); }
     setShowModal(true);
   }
 
@@ -108,10 +118,8 @@ export default function SiswaList() {
         await siswaService.update(selected.id, payload);
         setSuccess('Data siswa berhasil diperbarui');
       } else {
-        // POST /siswa — email*, password*, nisn*, nama* wajib
+        // POST /siswa — buat user baru ATAU pakai user yang sudah ada
         const payload = {
-          email:         form.email,
-          password:      form.password,
           nisn:          form.nisn,
           nis:           form.nis || undefined,
           nama:          form.nama,
@@ -120,6 +128,12 @@ export default function SiswaList() {
           alamat:        form.alamat || undefined,
           kelas_id:      form.kelas_id ? Number(form.kelas_id) : undefined,
         };
+        if (form.user_id) {
+          payload.user_id = Number(form.user_id);
+        } else {
+          payload.email = form.email;
+          payload.password = form.password;
+        }
         await siswaService.create(payload);
         setSuccess('Data siswa berhasil ditambahkan');
       }
@@ -198,7 +212,7 @@ export default function SiswaList() {
           className="input-field w-48">
           <option value="">Semua Kelas</option>
           {kelas.map(k => (
-            <option key={k.id} value={k.id}>{k.nama_kelas}</option>
+            <option key={k.id} value={k.id}>{k.nama}</option>
           ))}
         </select>
       </div>
@@ -219,7 +233,7 @@ export default function SiswaList() {
                   <td className="font-mono text-sm">{item.nisn || '-'}</td>
                   <td className="font-medium">{item.nama}</td>
                   <td>{item.jenis_kelamin === 'L' ? 'L' : 'P'}</td>
-                  <td>{item.kelas?.nama_kelas || '-'}</td>
+                  <td>{item.kelas?.nama || '-'}</td>
                   <td>{item.user?.email || '-'}</td>
                   <td>
                     <div className="flex gap-3">
@@ -249,18 +263,43 @@ export default function SiswaList() {
               <p className="text-xs font-semibold text-text-light uppercase tracking-wide mb-3">
                 🔐 Akun Login Siswa
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text mb-1">Email * <span className="font-normal text-text-light">(harus unik)</span></label>
-                  <input type="email" name="email" value={form.email} onChange={ch}
-                    className="input-field" required placeholder="siswa@sekolah.sch.id" />
+
+              {availableUsers.length > 0 && (
+                <div className="mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!form.user_id}
+                      onChange={e => setForm(p => ({ ...p, user_id: e.target.checked ? (availableUsers[0]?.id || '') : '' }))}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-text">Gunakan user yang sudah ada (dari Manajemen User)</span>
+                  </label>
+                  {form.user_id && (
+                    <select name="user_id" value={form.user_id} onChange={ch} className="input-field mt-2">
+                      <option value="">-- Pilih User --</option>
+                      {availableUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.nama} — {u.email}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-text mb-1">Password * (min. 8 karakter)</label>
-                  <input type="password" name="password" value={form.password} onChange={ch}
-                    className="input-field" required minLength={8} placeholder="Min. 8 karakter" />
+              )}
+
+              {!form.user_id && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Email * <span className="font-normal text-text-light">(harus unik)</span></label>
+                    <input type="email" name="email" value={form.email} onChange={ch}
+                      className="input-field" required={!form.user_id} placeholder="siswa@sekolah.sch.id" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Password * (min. 8 karakter)</label>
+                    <input type="password" name="password" value={form.password} onChange={ch}
+                      className="input-field" required={!form.user_id} minLength={8} placeholder="Min. 8 karakter" />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -312,7 +351,7 @@ export default function SiswaList() {
               <select name="kelas_id" value={form.kelas_id} onChange={ch} className="input-field">
                 <option value="">-- Pilih Kelas --</option>
                 {kelas.map(k => (
-                  <option key={k.id} value={k.id}>{k.nama_kelas}</option>
+                  <option key={k.id} value={k.id}>{k.nama}</option>
                 ))}
               </select>
             </div>

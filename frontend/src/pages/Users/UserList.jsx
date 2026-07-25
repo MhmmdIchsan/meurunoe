@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
 
 const EMPTY = { nama: '', email: '', password: '', role_id: '', is_active: true };
+const PAGE_SIZE = 10;
 
 export default function UserList() {
   const [users, setUsers]         = useState([]);
@@ -17,20 +18,33 @@ export default function UserList() {
   const [form, setForm]           = useState(EMPTY);
   const [success, setSuccess]     = useState('');
   const [errMsg, setErrMsg]       = useState('');
+  const [page, setPage]           = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal]         = useState(0);
+  const [search, setSearch]       = useState('');
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [page]);
 
   async function fetchAll() {
     setLoading(true);
     try {
       const [rolesRes, usersRes] = await Promise.all([
         api.get('/roles'),
-        userService.getAll(),
+        userService.getAll({ page, limit: PAGE_SIZE, search: search || undefined }),
       ]);
       const rawRoles = rolesRes.data?.data || [];
       const rawUsers = usersRes.data;
       setRoles(Array.isArray(rawRoles) ? rawRoles : []);
       setUsers(Array.isArray(rawUsers) ? rawUsers : (rawUsers?.data || []));
+
+      // Simpan info pagination
+      if (usersRes.pagination) {
+        setTotalPages(usersRes.pagination.total_pages || 1);
+        setTotal(usersRes.pagination.total || 0);
+      } else {
+        setTotalPages(1);
+        setTotal(users.length);
+      }
     } catch (e) {
       setErrMsg('Gagal memuat data: ' + (e.response?.data?.message || e.message));
     } finally {
@@ -141,7 +155,7 @@ export default function UserList() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text">Manajemen User</h1>
-          <p className="text-text-light mt-1">Total: {users.length} user terdaftar</p>
+          <p className="text-text-light mt-1">Total: {total} user terdaftar</p>
         </div>
         <button onClick={openAdd} className="btn-primary">➕ Tambah User</button>
       </div>
@@ -203,6 +217,44 @@ export default function UserList() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-gray-50">
+            <span className="text-sm text-text-light">
+              Halaman {page} dari {totalPages} ({total} user)
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1 text-sm border border-border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Sebelumnya
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1 text-sm border rounded ${
+                    p === page
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border hover:bg-gray-100'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="px-3 py-1 text-sm border border-border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)}

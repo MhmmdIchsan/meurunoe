@@ -3,25 +3,28 @@ import { useAuth, extractRole } from '../../context/AuthContext';
 
 const ALL_MENU = [
   { title: 'Dashboard',      path: '/dashboard',    icon: '📊',
-    roles: ['admin','kepala sekolah','guru','wali_kelas','siswa','orang_tua'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa','orang_tua'] },
+  { title: 'E-Learning',    path: '/elearning',   icon: '📚',
+    roles: ['admin','guru','wali_kelas','siswa'] },
   { title: 'Manajemen User', path: '/users',         icon: '👥',  roles: ['admin'] },
   
-  // KHUSUS wali_kelas
-  { title: 'Monitoring Kelas', path: '/wali-kelas/monitoring', icon: '📋',  
-    roles: ['wali_kelas'] },
+  // Guru & Wali Kelas — akan tampil sesuai data (kosong jika belum ditugaskan)
+  { title: 'Monitoring Kelas', path: '/wali-kelas/monitoring', icon: '📋',
+    roles: ['guru','wali_kelas'] },
   
   { title: 'Data Siswa',     path: '/siswa',         icon: '🎓',
-    roles: ['admin','kepala sekolah','guru','wali_kelas'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Data Guru',      path: '/guru',          icon: '👨‍🏫',
-    roles: ['admin','kepala sekolah'] },
-  { title: 'Data orang_tua', path: '/orang-tua-list', icon: '👨‍👩‍👧',  
+    roles: ['admin','kepala_sekolah'] },
+  { title: 'Data Orang Tua', path: '/orang-tua-list', icon: '👨‍👩‍👧',  
     roles: ['admin'] },
   { title: 'Data Kelas',     path: '/kelas',         icon: '🏫',
-    roles: ['admin','kepala sekolah','guru','wali_kelas'] },
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
+  { title: 'Jurusan',       path: '/jurusan',      icon: '🏛️',  roles: ['admin'] },
   { title: 'Mata Pelajaran', path: '/mapel',         icon: '📚',  roles: ['admin'] },
   { title: 'Tahun Ajaran',   path: '/tahun-ajaran',  icon: '🗓️',  roles: ['admin'] },
   { title: 'Jadwal Pelajaran', path: '/jadwal',      icon: '📅',
-    roles: ['admin','kepala sekolah','guru','wali_kelas','siswa'] }, // ← HAPUS orang_tua
+    roles: ['admin','kepala_sekolah','guru','wali_kelas','siswa'] }, // ← HAPUS orang_tua
   { title: 'Absensi',        path: '/absensi',       icon: '✅',
     roles: ['admin','guru','wali_kelas'] }, // ← HAPUS siswa & orang_tua
   { title: 'Penilaian',      path: '/nilai',         icon: '📝',
@@ -31,11 +34,11 @@ const ALL_MENU = [
   { title: 'Jadwal Anak',    path: '/jadwal-anak',   icon: '📅',
     roles: ['orang_tua'] }, // ← TAMBAH untuk orang_tua
   { title: 'Rapor',          path: '/rapor',         icon: '📄',
-    roles: ['admin','kepala sekolah','guru','wali_kelas'] }, // ← HAPUS siswa & orang_tua
+    roles: ['admin','kepala_sekolah','guru','wali_kelas'] },
   { title: 'Rapor Anak',     path: '/rapor-anak',    icon: '📋',
     roles: ['orang_tua'] }, // ← TAMBAH untuk orang_tua
   { title: 'Laporan',        path: '/laporan',       icon: '📈',
-    roles: ['admin','kepala sekolah'] },
+    roles: ['admin','kepala_sekolah'] },
 ];
 
 export default function Sidebar() {

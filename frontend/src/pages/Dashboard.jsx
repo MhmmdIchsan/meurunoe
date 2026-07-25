@@ -15,12 +15,12 @@ export default function Dashboard() {
   useEffect(() => {
     // Redirect orang tua ke dashboard khusus mereka
     // CRITICAL: Check current path untuk avoid infinite loop
-    if ((role === 'orang tua' || role === 'orang_tua') && location.pathname === '/dashboard') {
+    if (role === 'orang_tua' && location.pathname === '/dashboard') {
       navigate('/orang-tua', { replace: true });
       return;
     }
 
-    if (role === 'wali kelas') {
+    if (role === 'guru' || role === 'wali_kelas') {
       fetchWaliKelasStats();
     } else {
       setLoading(false);
@@ -74,14 +74,13 @@ export default function Dashboard() {
 
       {/* Role-specific Dashboard */}
       {role === 'admin' && <DashboardAdmin />}
-      {role === 'wali kelas' && <DashboardWaliKelas stats={stats} />}
-      {role === 'guru' && <DashboardGuru />}
-      {role === 'kepala sekolah' && <DashboardKepalaSekolah />}
+      {(role === 'guru' || role === 'wali_kelas') && <DashboardWaliKelas stats={stats} />}
+      {role === 'kepala_sekolah' && <DashboardKepalaSekolah />}
       {role === 'siswa' && <DashboardSiswa />}
-      {role === 'orang tua' && <DashboardOrangTua />}
+      {role === 'orang_tua' && <DashboardOrangTua />}
 
       {/* Default untuk role lain */}
-      {!['admin','wali kelas','guru','kepala sekolah','siswa','orang tua'].includes(role) && (
+      {!['admin','wali_kelas','guru','kepala_sekolah','siswa','orang_tua'].includes(role) && (
         <div className="card p-12 text-center">
           <div className="text-5xl mb-4">📊</div>
           <h2 className="text-xl font-bold text-text mb-2">Dashboard</h2>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { guruService } from '../../services/guruService';
+import { userService } from '../../services/userService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import Modal from '../../components/Common/Modal';
 
@@ -11,11 +12,14 @@ const EMPTY_CREATE = {
   nip: '', nama: '', jenis_kelamin: 'L',
   alamat: '', telepon: '',
   email: '', password: '',
+  user_id: '', // '' = buat user baru
 };
 const EMPTY_EDIT = {
   nip: '', nama: '', jenis_kelamin: 'L',
   alamat: '', telepon: '',
 };
+
+const ROLE_GURU_ID = 3;
 
 export default function GuruList() {
   const [guru, setGuru]           = useState([]);
@@ -27,6 +31,7 @@ export default function GuruList() {
   const [form, setForm]           = useState(EMPTY_CREATE);
   const [success, setSuccess]     = useState('');
   const [errMsg, setErrMsg]       = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   useEffect(() => { fetchGuru(); }, []);
 
@@ -43,9 +48,17 @@ export default function GuruList() {
     }
   }
 
-  function openAdd() {
+  async function openAdd() {
     setEditMode(false); setSelected(null);
     setForm(EMPTY_CREATE); setErrMsg(''); setSuccess('');
+    // Fetch users dengan role guru yang belum punya data guru
+    try {
+      const res = await userService.getAll({ role_id: ROLE_GURU_ID, limit: 200 });
+      const users = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      // Filter: hanya user yang belum jadi guru
+      const guruUserIds = new Set(guru.map(g => g.user_id));
+      setAvailableUsers(users.filter(u => !guruUserIds.has(u.id)));
+    } catch { setAvailableUsers([]); }
     setShowModal(true);
   }
 
@@ -91,16 +104,22 @@ export default function GuruList() {
         await guruService.update(selected.id, payload);
         setSuccess('Data guru berhasil diperbarui');
       } else {
-        // POST /guru — email*, password*, nama*, + data profil
+        // POST /guru — buat user baru ATAU pakai user yang sudah ada
         const payload = {
-          email:         form.email,
-          password:      form.password,
           nama:          form.nama,
           nip:           form.nip || undefined,
           jenis_kelamin: form.jenis_kelamin || undefined,
           alamat:        form.alamat || undefined,
           telepon:       form.telepon || undefined,
         };
+        if (form.user_id) {
+          // Pakai user yang sudah ada
+          payload.user_id = Number(form.user_id);
+        } else {
+          // Buat user baru
+          payload.email = form.email;
+          payload.password = form.password;
+        }
         await guruService.create(payload);
         setSuccess('Data guru berhasil ditambahkan');
       }
@@ -201,18 +220,50 @@ export default function GuruList() {
               <p className="text-xs font-semibold text-text-light uppercase tracking-wide mb-3">
                 🔐 Akun Login Guru
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text mb-1">Email * <span className="font-normal text-text-light">(harus unik)</span></label>
-                  <input type="email" name="email" value={form.email} onChange={ch}
-                    className="input-field" required placeholder="guru@sekolah.sch.id" />
+
+              {/* Toggle: pakai user yang sudah ada */}
+              {availableUsers.length > 0 && (
+                <div className="mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!form.user_id}
+                      onChange={e => setForm(p => ({ ...p, user_id: e.target.checked ? (availableUsers[0]?.id || '') : '' }))}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-text">Gunakan user yang sudah ada (dari Manajemen User)</span>
+                  </label>
+                  {form.user_id && (
+                    <select
+                      name="user_id"
+                      value={form.user_id}
+                      onChange={ch}
+                      className="input-field mt-2"
+                    >
+                      <option value="">-- Pilih User --</option>
+                      {availableUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.nama} — {u.email}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-text mb-1">Password * (min. 8 karakter)</label>
-                  <input type="password" name="password" value={form.password} onChange={ch}
-                    className="input-field" required minLength={8} placeholder="Min. 8 karakter" />
+              )}
+
+              {/* Form email/password hanya jika tidak pakai user yang sudah ada */}
+              {!form.user_id && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Email * <span className="font-normal text-text-light">(harus unik)</span></label>
+                    <input type="email" name="email" value={form.email} onChange={ch}
+                      className="input-field" required={!form.user_id} placeholder="guru@sekolah.sch.id" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">Password * (min. 8 karakter)</label>
+                    <input type="password" name="password" value={form.password} onChange={ch}
+                      className="input-field" required={!form.user_id} minLength={8} placeholder="Min. 8 karakter" />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

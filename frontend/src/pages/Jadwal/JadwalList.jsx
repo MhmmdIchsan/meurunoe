@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { jadwalService } from '../../services/jadwalService';
 import { kelasService } from '../../services/kelasService';
 import { guruService } from '../../services/guruService';
-import { mataPelajaranService } from '../../services/mataPelajaranService';
+import { mataPelajaranService } from '../../services/matapelajaranService';
 import { semesterService } from '../../services/semesterService';
 import { useAuth, extractRole } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
