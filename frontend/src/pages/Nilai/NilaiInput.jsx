@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { nilaiService } from '../../services/nilaiService';
 import { kelasService } from '../../services/kelasService';
-import { mataPelajaranService } from '../../services/mataPelajaranService';
+import { mataPelajaranService } from '../../services/matapelajaranService';
 import { semesterService } from '../../services/semesterService';
 import { useAuth, extractRole } from '../../context/AuthContext';
 import { notifyNilaiUpdated } from '../../utils/notifications';
