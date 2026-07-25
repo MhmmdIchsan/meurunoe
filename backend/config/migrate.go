@@ -28,6 +28,16 @@ func MigrateDB() {
 		&models.Absensi{},
 		&models.Nilai{},
 		&models.Rapor{},
+
+		// E-Learning
+		&models.Pertemuan{},
+		&models.Kehadiran{},
+		&models.Materi{},
+		&models.Quiz{},
+		&models.QuizSoal{},
+		&models.QuizJawaban{},
+		&models.Tugas{},
+		&models.Pengumpulan{},
 	)
 	if err != nil {
 		log.Fatal("❌ AutoMigrate gagal:", err)

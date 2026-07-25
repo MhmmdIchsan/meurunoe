@@ -170,17 +170,17 @@ func RegisterRoutes(r *gin.Engine) {
 				controllers.GetSiswaByKelas,
 			)
 			kelas.POST("",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("CREATE", "kelas"),
 				controllers.CreateKelas,
 			)
 			kelas.PUT("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("UPDATE", "kelas"),
 				controllers.UpdateKelas,
 			)
 			kelas.DELETE("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("DELETE", "kelas"),
 				controllers.DeleteKelas,
 			)
@@ -198,27 +198,27 @@ func RegisterRoutes(r *gin.Engine) {
 				controllers.GetSiswaByID,
 			)
 			siswRoute.POST("",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("CREATE", "siswa"),
 				controllers.CreateSiswa,
 			)
 			siswRoute.PUT("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("UPDATE", "siswa"),
 				controllers.UpdateSiswa,
 			)
 			siswRoute.PATCH("/:id/pindah-kelas",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("PINDAH_KELAS", "siswa"),
 				controllers.PindahKelas,
 			)
 			siswRoute.DELETE("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("DELETE", "siswa"),
 				controllers.DeleteSiswa,
 			)
 			siswRoute.POST("/:id/orang-tua",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				controllers.LinkOrangTuaSiswa,
 			)
 		}
@@ -227,7 +227,7 @@ func RegisterRoutes(r *gin.Engine) {
 		otRoute := protected.Group("/orang-tua")
 		{
 			otRoute.GET("",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				controllers.GetOrangTua,
 			)
 			otRoute.GET("/saya/anak",
@@ -235,30 +235,30 @@ func RegisterRoutes(r *gin.Engine) {
 				controllers.GetAnakByOrangTua,
 			)
 			otRoute.GET("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				controllers.GetOrangTuaByID,
 			)
 			otRoute.GET("/:id/siswa",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				controllers.GetAnakByOrangTuaID,
 			)
 			otRoute.POST("",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("CREATE", "orang_tua"),
 				controllers.CreateOrangTua,
 			)
 			otRoute.PUT("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("UPDATE", "orang_tua"),
 				controllers.UpdateOrangTua,
 			)
 			otRoute.DELETE("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("DELETE", "orang_tua"),
 				controllers.DeleteOrangTua,
 			)
 			otRoute.POST("/:id/assign-siswa",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("ASSIGN_SISWA", "orang_tua"),
 				controllers.AssignSiswa,
 			)
@@ -288,26 +288,26 @@ func RegisterRoutes(r *gin.Engine) {
 				controllers.GetJadwalByID,
 			)
 			jadwal.POST("/validasi",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				controllers.ValidasiJadwal,
 			)
 			jadwal.POST("",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("CREATE", "jadwal"),
 				controllers.CreateJadwal,
 			)
 			jadwal.POST("/bulk",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("BULK_CREATE", "jadwal"),
 				controllers.BulkCreateJadwal,
 			)
 			jadwal.PUT("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("UPDATE", "jadwal"),
 				controllers.UpdateJadwal,
 			)
 			jadwal.DELETE("/:id",
-				middlewares.RoleMiddleware(models.RoleAdmin),
+				middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 				middlewares.ActivityLogger("DELETE", "jadwal"),
 				controllers.DeleteJadwal,
 			)
@@ -414,15 +414,46 @@ func RegisterRoutes(r *gin.Engine) {
 			controllers.DownloadRapor,
 			)
 			rapor.POST("/generate",
-			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleWaliKelas),
+			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 			middlewares.ActivityLogger("GENERATE", "rapor"),
 			controllers.GenerateRapor,
 			)
 			rapor.DELETE("/:id",
-			middlewares.RoleMiddleware(models.RoleAdmin),
+			middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas),
 			middlewares.ActivityLogger("DELETE", "rapor"),
 			controllers.DeleteRapor,
 			)
+
+			// ── E-Learning ───────────────────────────────────────
+			elearn := protected.Group("/elearning")
+			{
+				// Pertemuan
+				elearn.GET("/pertemuan", controllers.GetPertemuan)
+				elearn.GET("/pertemuan/:id", controllers.GetPertemuanByID)
+				elearn.POST("/pertemuan", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.CreatePertemuan)
+				elearn.PUT("/pertemuan/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.UpdatePertemuan)
+				elearn.DELETE("/pertemuan/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.DeletePertemuan)
+				// Kehadiran
+				elearn.GET("/kehadiran", controllers.GetKehadiran)
+				elearn.POST("/kehadiran", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.InputKehadiran)
+				// Materi
+				elearn.GET("/materi", controllers.GetMateri)
+				elearn.POST("/materi", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.CreateMateri)
+				elearn.DELETE("/materi/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.DeleteMateri)
+				// Quiz
+				elearn.GET("/quiz", controllers.GetQuiz)
+				elearn.GET("/quiz/:id", controllers.GetQuizByID)
+				elearn.POST("/quiz", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.CreateQuiz)
+				elearn.DELETE("/quiz/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.DeleteQuiz)
+				elearn.POST("/quiz/submit", middlewares.RoleMiddleware(models.RoleSiswa), controllers.SubmitJawaban)
+				elearn.GET("/quiz/jawaban", controllers.GetQuizJawaban)
+				// Tugas
+				elearn.GET("/tugas", controllers.GetTugas)
+				elearn.POST("/tugas", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.CreateTugas)
+				elearn.DELETE("/tugas/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.DeleteTugas)
+				elearn.POST("/tugas/upload", middlewares.RoleMiddleware(models.RoleSiswa), controllers.UploadPengumpulan)
+				elearn.PUT("/tugas/nilai/:id", middlewares.RoleMiddleware(models.RoleAdmin, models.RoleGuru, models.RoleWaliKelas), controllers.NilaiPengumpulan)
+			}
 		}
 	}
 }
