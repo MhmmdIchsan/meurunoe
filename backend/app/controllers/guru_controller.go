@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +14,11 @@ import (
 // ── DTOs ──────────────────────────────────────────────────────
 
 type CreateGuruRequest struct {
-	// Data User (akun login)
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
+	// Opsional: gunakan user yang sudah ada
+	UserID *uint `json:"user_id"`
+	// Data User (akun login) — wajib jika UserID tidak diisi
+	Email    string `json:"email" binding:"omitempty,email"`
+	Password string `json:"password"`
 	// Data Guru
 	NIP          string `json:"nip"`
 	Nama         string `json:"nama" binding:"required,min=3,max=100"`
@@ -97,10 +100,9 @@ func CreateGuru(c *gin.Context) {
 		return
 	}
 
-	// Cek email belum dipakai
-	var existingUser models.User
-	if err := config.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
-		utils.ResponseBadRequest(c, "Email sudah digunakan", nil)
+	// Validasi: user_id atau email+password harus diisi
+	if req.UserID == nil && (req.Email == "" || req.Password == "") {
+		utils.ResponseBadRequest(c, "Email & password wajib diisi, atau pilih user yang sudah ada", nil)
 		return
 	}
 
@@ -120,22 +122,57 @@ func CreateGuru(c *gin.Context) {
 		return
 	}
 
-	// Buat user + guru dalam satu transaksi
 	var guru models.Guru
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		user := models.User{
-			RoleID:   roleGuru.ID,
-			Nama:     req.Nama,
-			Email:    req.Email,
-			Password: req.Password,
-			IsActive: true,
-		}
-		if err := tx.Create(&user).Error; err != nil {
-			return err
+		var userID uint
+
+		if req.UserID != nil {
+			// ── Pakai user yang sudah ada ──
+			var user models.User
+			if err := tx.Preload("Role").First(&user, *req.UserID).Error; err != nil {
+				return fmt.Errorf("user tidak ditemukan")
+			}
+			if user.RoleID != roleGuru.ID {
+				return fmt.Errorf("user yang dipilih bukan role guru")
+			}
+			// Cek user belum punya data guru
+			var existing models.Guru
+			if err := tx.Where("user_id = ?", user.ID).First(&existing).Error; err == nil {
+				return fmt.Errorf("user ini sudah memiliki data guru")
+			}
+			// Update nama/email jika diberikan
+			updates := map[string]interface{}{}
+			if req.Nama != "" {
+				updates["nama"] = req.Nama
+			}
+			if req.Email != "" {
+				updates["email"] = req.Email
+			}
+			if len(updates) > 0 {
+				tx.Model(&user).Updates(updates)
+			}
+			userID = user.ID
+		} else {
+			// ── Buat user baru ──
+			var existingUser models.User
+			if err := tx.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+				return fmt.Errorf("email sudah digunakan")
+			}
+			user := models.User{
+				RoleID:   roleGuru.ID,
+				Nama:     req.Nama,
+				Email:    req.Email,
+				Password: req.Password,
+				IsActive: true,
+			}
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+			userID = user.ID
 		}
 
 		guru = models.Guru{
-			UserID:       user.ID,
+			UserID:       userID,
 			NIP:          req.NIP,
 			Nama:         req.Nama,
 			JenisKelamin: req.JenisKelamin,
@@ -146,7 +183,7 @@ func CreateGuru(c *gin.Context) {
 	})
 
 	if err != nil {
-		utils.ResponseInternalError(c, "Gagal membuat data guru")
+		utils.ResponseBadRequest(c, err.Error(), nil)
 		return
 	}
 

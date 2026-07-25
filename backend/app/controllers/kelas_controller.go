@@ -254,6 +254,22 @@ func DeleteKelas(c *gin.Context) {
 		return
 	}
 
+	// Kembalikan role wali kelas ke guru (jika tidak wali kelas di kelas lain)
+	if kelas.WaliKelasID != nil {
+		var guru models.Guru
+		if err := config.DB.First(&guru, *kelas.WaliKelasID).Error; err == nil {
+			var otherKelas int64
+			config.DB.Model(&models.Kelas{}).
+				Where("wali_kelas_id = ? AND id != ?", *kelas.WaliKelasID, kelas.ID).
+				Count(&otherKelas)
+			if otherKelas == 0 {
+				var roleGuru models.Role
+				if err := config.DB.Where("nama = ?", models.RoleGuru).First(&roleGuru).Error; err == nil {
+					config.DB.Model(&models.User{}).Where("id = ?", guru.UserID).Update("role_id", roleGuru.ID)
+				}
+			}
+		}
+	}
 	config.DB.Delete(&kelas)
 	utils.ResponseOK(c, "Kelas berhasil dihapus", nil)
 }

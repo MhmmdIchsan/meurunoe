@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -96,11 +97,15 @@ func GetAnakByOrangTuaID(c *gin.Context) {
 // @Router /orang-tua [post]
 func CreateOrangTua(c *gin.Context) {
 	var req struct {
-		Email     string `json:"email" binding:"required,email"`
-		Password  string `json:"password" binding:"required,min=8"`
+		// Opsional: gunakan user yang sudah ada
+		UserID *uint `json:"user_id"`
+		// Akun login — wajib jika UserID tidak diisi
+		Email    string `json:"email" binding:"omitempty,email"`
+		Password string `json:"password"`
+		// Data orang tua
 		Nama      string `json:"nama" binding:"required,min=3,max=100"`
 		Telepon   string `json:"telepon"`
-		Pekerjaan string `json:"pekerjaan"` // ← TAMBAH INI
+		Pekerjaan string `json:"pekerjaan"`
 		Alamat    string `json:"alamat"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -108,10 +113,9 @@ func CreateOrangTua(c *gin.Context) {
 		return
 	}
 
-	var count int64
-	config.DB.Model(&models.User{}).Where("email = ?", req.Email).Count(&count)
-	if count > 0 {
-		utils.ResponseBadRequest(c, "Email sudah digunakan", nil)
+	// Validasi: user_id atau email+password harus diisi
+	if req.UserID == nil && (req.Email == "" || req.Password == "") {
+		utils.ResponseBadRequest(c, "Email & password wajib diisi, atau pilih user yang sudah ada", nil)
 		return
 	}
 
@@ -123,28 +127,64 @@ func CreateOrangTua(c *gin.Context) {
 
 	var ot models.OrangTua
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		user := models.User{
-			RoleID:   roleOT.ID,
-			Nama:     req.Nama,
-			Email:    req.Email,
-			Password: req.Password,
-			IsActive: true,
+		var userID uint
+
+		if req.UserID != nil {
+			// ── Pakai user yang sudah ada ──
+			var user models.User
+			if err := tx.Preload("Role").First(&user, *req.UserID).Error; err != nil {
+				return fmt.Errorf("user tidak ditemukan")
+			}
+			if user.RoleID != roleOT.ID {
+				return fmt.Errorf("user yang dipilih bukan role orang tua")
+			}
+			var existing models.OrangTua
+			if err := tx.Where("user_id = ?", user.ID).First(&existing).Error; err == nil {
+				return fmt.Errorf("user ini sudah memiliki data orang tua")
+			}
+			updates := map[string]interface{}{}
+			if req.Nama != "" {
+				updates["nama"] = req.Nama
+			}
+			if req.Email != "" {
+				updates["email"] = req.Email
+			}
+			if len(updates) > 0 {
+				tx.Model(&user).Updates(updates)
+			}
+			userID = user.ID
+		} else {
+			// ── Buat user baru ──
+			var count int64
+			tx.Model(&models.User{}).Where("email = ?", req.Email).Count(&count)
+			if count > 0 {
+				return fmt.Errorf("email sudah digunakan")
+			}
+			user := models.User{
+				RoleID:   roleOT.ID,
+				Nama:     req.Nama,
+				Email:    req.Email,
+				Password: req.Password,
+				IsActive: true,
+			}
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+			userID = user.ID
 		}
-		if err := tx.Create(&user).Error; err != nil {
-			return err
-		}
+
 		ot = models.OrangTua{
-			UserID:    user.ID,
+			UserID:    userID,
 			Nama:      req.Nama,
 			Telepon:   req.Telepon,
-			Pekerjaan: req.Pekerjaan, // ← TAMBAH INI
+			Pekerjaan: req.Pekerjaan,
 			Alamat:    req.Alamat,
 		}
 		return tx.Create(&ot).Error
 	})
 
 	if err != nil {
-		utils.ResponseInternalError(c, "Gagal mendaftarkan orang tua")
+		utils.ResponseBadRequest(c, err.Error(), nil)
 		return
 	}
 

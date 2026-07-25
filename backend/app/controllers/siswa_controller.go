@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -14,9 +15,11 @@ import (
 // ── DTOs ──────────────────────────────────────────────────────
 
 type CreateSiswaRequest struct {
-	// Akun login
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
+	// Opsional: gunakan user yang sudah ada
+	UserID *uint `json:"user_id"`
+	// Akun login — wajib jika UserID tidak diisi
+	Email    string `json:"email" binding:"omitempty,email"`
+	Password string `json:"password"`
 	// Data siswa
 	NISN         string `json:"nisn" binding:"required"`
 	NIS          string `json:"nis"`
@@ -120,10 +123,9 @@ func CreateSiswa(c *gin.Context) {
 		return
 	}
 
-	// Cek email belum terpakai
-	var existingUser models.User
-	if err := config.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
-		utils.ResponseBadRequest(c, "Email sudah digunakan", nil)
+	// Validasi: user_id atau email+password harus diisi
+	if req.UserID == nil && (req.Email == "" || req.Password == "") {
+		utils.ResponseBadRequest(c, "Email & password wajib diisi, atau pilih user yang sudah ada", nil)
 		return
 	}
 
@@ -154,19 +156,53 @@ func CreateSiswa(c *gin.Context) {
 
 	var siswa models.Siswa
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		user := models.User{
-			RoleID:   roleSiswa.ID,
-			Nama:     req.Nama,
-			Email:    req.Email,
-			Password: req.Password,
-			IsActive: true,
-		}
-		if err := tx.Create(&user).Error; err != nil {
-			return err
+		var userID uint
+
+		if req.UserID != nil {
+			// ── Pakai user yang sudah ada ──
+			var user models.User
+			if err := tx.Preload("Role").First(&user, *req.UserID).Error; err != nil {
+				return fmt.Errorf("user tidak ditemukan")
+			}
+			if user.RoleID != roleSiswa.ID {
+				return fmt.Errorf("user yang dipilih bukan role siswa")
+			}
+			var existing models.Siswa
+			if err := tx.Where("user_id = ?", user.ID).First(&existing).Error; err == nil {
+				return fmt.Errorf("user ini sudah memiliki data siswa")
+			}
+			updates := map[string]interface{}{}
+			if req.Nama != "" {
+				updates["nama"] = req.Nama
+			}
+			if req.Email != "" {
+				updates["email"] = req.Email
+			}
+			if len(updates) > 0 {
+				tx.Model(&user).Updates(updates)
+			}
+			userID = user.ID
+		} else {
+			// ── Buat user baru ──
+			var existingUser models.User
+			if err := tx.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+				return fmt.Errorf("email sudah digunakan")
+			}
+			user := models.User{
+				RoleID:   roleSiswa.ID,
+				Nama:     req.Nama,
+				Email:    req.Email,
+				Password: req.Password,
+				IsActive: true,
+			}
+			if err := tx.Create(&user).Error; err != nil {
+				return err
+			}
+			userID = user.ID
 		}
 
 		siswa = models.Siswa{
-			UserID:       user.ID,
+			UserID:       userID,
 			NISN:         req.NISN,
 			NIS:          req.NIS,
 			Nama:         req.Nama,
@@ -179,7 +215,7 @@ func CreateSiswa(c *gin.Context) {
 	})
 
 	if err != nil {
-		utils.ResponseInternalError(c, "Gagal mendaftarkan siswa")
+		utils.ResponseBadRequest(c, err.Error(), nil)
 		return
 	}
 
