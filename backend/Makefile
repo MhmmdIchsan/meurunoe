@@ -18,6 +18,10 @@ build:
 seed:
 	go run ./migrations/seeder/main.go
 
+# Jalankan seeder siswa (isi data dummy siswa)
+seed-siswa:
+	go run ./migrations/seeder/siswa/main.go
+
 # Rapikan dependencies
 tidy:
 	go mod tidy
@@ -29,3 +33,7 @@ deps:
 # Build + run (Linux / Git Bash)
 start: build
 	./bin/$(APP_NAME)
+
+# Jalankan seeder akademik (kelas, guru, mapel)
+seed-akademik:
+	go run ./migrations/seeder/akademik/main.go
